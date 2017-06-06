@@ -32,7 +32,7 @@ final class SerializerContextBuilder implements SerializerContextBuilderInterfac
     /**
      * {@inheritdoc}
      */
-    public function createFromRequest(Request $request, bool $normalization, array $attributes = null) : array
+    public function createFromRequest(Request $request, bool $normalization, array $attributes = null): array
     {
         if (null === $attributes) {
             $attributes = RequestAttributesExtractor::extractAttributes($request);
@@ -47,6 +47,10 @@ final class SerializerContextBuilder implements SerializerContextBuilderInterfac
         } else {
             $context = $resourceMetadata->getItemOperationAttribute($attributes['item_operation_name'], $key, [], true);
             $context['item_operation_name'] = $attributes['item_operation_name'];
+        }
+
+        if (!$normalization && !isset($context['api_allow_update'])) {
+            $context['api_allow_update'] = Request::METHOD_PUT === $request->getMethod();
         }
 
         $context['resource_class'] = $attributes['resource_class'];

@@ -12,12 +12,15 @@
             <argument type="service" id="api_platform.resource_class_resolver" />
             <argument type="service" id="api_platform.operation_method_resolver" />
             <argument type="service" id="api_platform.router" />
+            <argument type="service" id="api_platform.iri_converter" />
+            <argument type="service" id="api_platform.hydra.normalizer.collection_filters" />
+
 
             <tag name="serializer.normalizer" priority="32" />
         </service>
 
 
-        <!-- Event listeners -->
+        <!-- Event listener -->
 
         <service id="api_platform.hydra.listener.response.add_link_header" class="ApiPlatform\Core\Hydra\EventListener\AddLinkHeaderListener">
             <argument type="service" id="api_platform.router" />
@@ -68,12 +71,6 @@
             <argument type="service" id="api_platform.resource_class_resolver" />
             <argument type="service" id="api_platform.filters" />
         </service>
-
-        <!-- Action -->
-
-        <service id="api_platform.hydra.action.exception" class="ApiPlatform\Core\Hydra\Action\ExceptionAction">
-            <argument type="service" id="api_platform.hydra.normalizer.error" />
-       </service>
 
     </services>
 

@@ -31,7 +31,7 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
     private $collectionNormalizer;
     private $resourceMetadataFactory;
     private $resourceClassResolver;
-    private $filters;
+    public $filters;
 
     public function __construct(NormalizerInterface $collectionNormalizer, ResourceMetadataFactoryInterface $resourceMetadataFactory, ResourceClassResolverInterface $resourceClassResolver, FilterCollection $filters)
     {
@@ -54,16 +54,20 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
      */
     public function normalize($object, $format = null, array $context = [])
     {
+        // dump($object);
+
+        if (!($object instanceof \Documentation)) {
+
         $data = $this->collectionNormalizer->normalize($object, $format, $context);
         if (isset($context['api_sub_level'])) {
             return $data;
         }
-
+    }
         $resourceClass = $this->resourceClassResolver->getResourceClass($object, $context['resource_class'] ?? null, true);
         $resourceMetadata = $this->resourceMetadataFactory->create($resourceClass);
 
         $operationName = $context['collection_operation_name'] ?? null;
-
+        dump($operationName);
         if (null === $operationName) {
             $resourceFilters = $resourceMetadata->getAttribute('filters', []);
         } else {
@@ -85,6 +89,12 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
                 $currentFilters[] = $filter;
             }
         }
+        // dump($this->filters);
+        // dump($resourceFilters);
+        // dump($resourceClass);
+        // dump($requestParts);
+        // dump($currentFilters);
+        //         throw new \Exception('DUMPSTERRRRR!');
 
         if ([] !== $currentFilters) {
             $data['hydra:search'] = $this->getSearch($resourceClass, $requestParts, $currentFilters);
@@ -112,7 +122,7 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
      *
      * @return array
      */
-    private function getSearch(string $resourceClass, array $parts, array $filters) : array
+    public function getSearch(string $resourceClass, array $parts, array $filters): array
     {
         $variables = [];
         $mapping = [];
@@ -120,7 +130,8 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
             foreach ($filter->getDescription($resourceClass) as $variable => $data) {
                 $variables[] = $variable;
                 $mapping[] = [
-                    '@type' => 'IriTemplateMapping',
+                    '@type' => 'hydra:IriTemplateMapping',
+                    // '@type' => 'IriTemplateMapping',
                     'variable' => $variable,
                     'property' => $data['property'],
                     'required' => $data['required'],
