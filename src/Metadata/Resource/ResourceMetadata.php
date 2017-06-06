@@ -26,7 +26,7 @@ final class ResourceMetadata
     private $collectionOperations;
     private $attributes;
 
-    public function __construct(string $shortName = null, string $description = null, string $iri = null, string $type = null, array $itemOperations = null, array $collectionOperations = null, array $attributes = null)
+    public function __construct(string $shortName = null, string $description = null, string $iri = null,string $type = null,  array $itemOperations = null, array $collectionOperations = null, array $attributes = null)
     {
         $this->shortName = $shortName;
         $this->description = $description;
@@ -54,7 +54,7 @@ final class ResourceMetadata
      *
      * @return self
      */
-    public function withShortName(string $shortName): self
+    public function withShortName(string $shortName) : self
     {
         $metadata = clone $this;
         $metadata->shortName = $shortName;
@@ -79,7 +79,7 @@ final class ResourceMetadata
      *
      * @return self
      */
-    public function withDescription(string $description): self
+    public function withDescription(string $description) : self
     {
         $metadata = clone $this;
         $metadata->description = $description;
@@ -104,7 +104,7 @@ final class ResourceMetadata
      *
      * @return self
      */
-    public function withIri(string $iri): self
+    public function withIri(string $iri) : self
     {
         $metadata = clone $this;
         $metadata->iri = $iri;
@@ -129,7 +129,7 @@ final class ResourceMetadata
      *
      * @return self
      */
-    public function withType(string $type): self
+    public function withType(string $type) : self
     {
         $metadata = clone $this;
         $metadata->type = $type;
@@ -154,7 +154,7 @@ final class ResourceMetadata
      *
      * @return self
      */
-    public function withItemOperations(array $itemOperations): self
+    public function withItemOperations(array $itemOperations) : self
     {
         $metadata = clone $this;
         $metadata->itemOperations = $itemOperations;
@@ -179,7 +179,7 @@ final class ResourceMetadata
      *
      * @return self
      */
-    public function withCollectionOperations(array $collectionOperations): self
+    public function withCollectionOperations(array $collectionOperations) : self
     {
         $metadata = clone $this;
         $metadata->collectionOperations = $collectionOperations;
@@ -275,7 +275,7 @@ final class ResourceMetadata
      *
      * @return self
      */
-    public function withAttributes(array $attributes): self
+    public function withAttributes(array $attributes) : self
     {
         $metadata = clone $this;
         $metadata->attributes = $attributes;

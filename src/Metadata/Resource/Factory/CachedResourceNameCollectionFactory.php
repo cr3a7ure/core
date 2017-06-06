@@ -36,7 +36,7 @@ final class CachedResourceNameCollectionFactory implements ResourceNameCollectio
     /**
      * {@inheritdoc}
      */
-    public function create(): ResourceNameCollection
+    public function create() : ResourceNameCollection
     {
         try {
             $cacheItem = $this->cacheItemPool->getItem(self::CACHE_KEY);
@@ -50,12 +50,14 @@ final class CachedResourceNameCollectionFactory implements ResourceNameCollectio
 
         $resourceNameCollection = $this->decorated->create();
 
-        if (!isset($cacheItem)) {
-            return $resourceNameCollection;
+        if (isset($cacheItem)) {
+            try {
+                $cacheItem->set($resourceNameCollection);
+                $this->cacheItemPool->save($cacheItem);
+            } catch (CacheException $e) {
+                // do nothing
+            }
         }
-
-        $cacheItem->set($resourceNameCollection);
-        $this->cacheItemPool->save($cacheItem);
 
         return $resourceNameCollection;
     }

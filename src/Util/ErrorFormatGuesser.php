@@ -18,12 +18,8 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
-final class ErrorFormatGuesser
+abstract class ErrorFormatGuesser
 {
-    private function __construct()
-    {
-    }
-
     /**
      * Get the error format and its associated MIME type.
      *
@@ -32,17 +28,15 @@ final class ErrorFormatGuesser
      *
      * @return array
      */
-    public static function guessErrorFormat(Request $request, array $errorFormats): array
+    public static function guessErrorFormat(Request $request, array $errorFormats) : array
     {
         $requestFormat = $request->getRequestFormat(null);
         if (null !== $requestFormat && isset($errorFormats[$requestFormat])) {
             return ['key' => $requestFormat, 'value' => $errorFormats[$requestFormat]];
         }
 
-        foreach ($errorFormats as $key => $value) {
-            return ['key' => $key, 'value' => $value];
-        }
+        reset($errorFormats);
 
-        return [];
+        return each($errorFormats);
     }
 }
