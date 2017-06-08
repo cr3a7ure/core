@@ -14,7 +14,7 @@ namespace ApiPlatform\Core\Tests\Metadata\Resource\Factory;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 
 /**
- * Resource metadata provider for file configurated factories tests.
+ * Resource metadata provider for file configured factories tests.
  *
  * @author Antoine Bluchet <soyuka@gmail.com>
  */
@@ -60,10 +60,7 @@ abstract class FileConfigurationMetadataFactoryProvider extends \PHPUnit_Framewo
     public function optionalResourceMetadataProvider()
     {
         $resourceMetadata = new ResourceMetadata();
-
-        $resourceMetadata = $resourceMetadata->withItemOperations([
-            'my_op_name' => ['method' => 'POST'],
-        ]);
+        $resourceMetadata = $resourceMetadata->withItemOperations(['my_op_name' => ['method' => 'POST']]);
 
         return [[$resourceMetadata]];
     }

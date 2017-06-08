@@ -17,7 +17,6 @@ namespace ApiPlatform\Core\Bridge\Doctrine\Orm\Util;
  * @author Teoh Han Hui <teohhanhui@gmail.com>
  * @author Vincent Chalamon <vincentchalamon@gmail.com>
  * @author Amrouche Hamza <hamza.simperfit@gmail.com>
-
  */
 final class QueryNameGenerator implements QueryNameGeneratorInterface
 {
@@ -27,7 +26,7 @@ final class QueryNameGenerator implements QueryNameGeneratorInterface
     /**
      * {@inheritdoc}
      */
-    public function generateJoinAlias(string $association) : string
+    public function generateJoinAlias(string $association): string
     {
         return sprintf('%s_a%d', $association, $this->incrementedAssociation++);
     }
@@ -35,7 +34,7 @@ final class QueryNameGenerator implements QueryNameGeneratorInterface
     /**
      * {@inheritdoc}
      */
-    public function generateParameterName(string $name) : string
+    public function generateParameterName(string $name): string
     {
         return sprintf('%s_p%d', $name, $this->incrementedName++);
     }

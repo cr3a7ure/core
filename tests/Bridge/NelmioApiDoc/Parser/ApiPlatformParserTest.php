@@ -26,6 +26,7 @@ use Nelmio\ApiDocBundle\DataTypes;
 use Nelmio\ApiDocBundle\Parser\ParserInterface;
 use Prophecy\Argument;
 use Symfony\Component\PropertyInfo\Type;
+use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 
 /**
  * @author Teoh Han Hui <teohhanhui@gmail.com>
@@ -64,6 +65,25 @@ class ApiPlatformParserTest extends \PHPUnit_Framework_TestCase
 
         $this->assertTrue($apiPlatformParser->supports([
             'class' => sprintf('%s:%s', ApiPlatformParser::OUT_PREFIX, Dummy::class),
+        ]));
+    }
+
+    public function testNoOnDataFirstArray()
+    {
+        $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
+        $resourceMetadataFactoryProphecy->create(Dummy::class)->willReturn(new ResourceMetadata());
+        $resourceMetadataFactory = $resourceMetadataFactoryProphecy->reveal();
+
+        $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
+        $propertyNameCollectionFactory = $propertyNameCollectionFactoryProphecy->reveal();
+
+        $propertyMetadataFactoryProphecy = $this->prophesize(PropertyMetadataFactoryInterface::class);
+        $propertyMetadataFactory = $propertyMetadataFactoryProphecy->reveal();
+
+        $apiPlatformParser = new ApiPlatformParser($resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory);
+
+        $this->assertFalse($apiPlatformParser->supports([
+            'class' => sprintf('%s', ApiPlatformParser::OUT_PREFIX),
         ]));
     }
 
@@ -111,7 +131,7 @@ class ApiPlatformParserTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals([
             'id' => [
                 'dataType' => DataTypes::INTEGER,
-                'required' => true,
+                'required' => false,
                 'description' => 'The id.',
                 'readonly' => true,
             ],
@@ -214,7 +234,7 @@ class ApiPlatformParserTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals([
             'id' => [
                 'dataType' => DataTypes::INTEGER,
-                'required' => true,
+                'required' => false,
                 'description' => 'The id.',
                 'readonly' => true,
             ],
@@ -345,7 +365,7 @@ class ApiPlatformParserTest extends \PHPUnit_Framework_TestCase
                 'children' => [
                     'id' => [
                         'dataType' => DataTypes::INTEGER,
-                        'required' => true,
+                        'required' => false,
                         'description' => null,
                         'readonly' => true,
                     ],
@@ -356,6 +376,48 @@ class ApiPlatformParserTest extends \PHPUnit_Framework_TestCase
                         'readonly' => false,
                     ],
                 ],
+            ],
+        ], $actual);
+    }
+
+    public function testParseWithNameConverter()
+    {
+        $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
+        $resourceMetadataFactoryProphecy->create(Dummy::class)->willReturn(new ResourceMetadata('dummy', 'dummy', null, [], []))->shouldBeCalled();
+        $resourceMetadataFactory = $resourceMetadataFactoryProphecy->reveal();
+
+        $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
+        $propertyNameCollectionFactoryProphecy->create(Dummy::class, Argument::cetera())->willReturn(new PropertyNameCollection([
+            'nameConverted',
+        ]))->shouldBeCalled();
+        $propertyNameCollectionFactory = $propertyNameCollectionFactoryProphecy->reveal();
+
+        $propertyMetadataFactoryProphecy = $this->prophesize(PropertyMetadataFactoryInterface::class);
+        $nameConvertedPropertyMetadata = (new PropertyMetadata())
+            ->withType(new Type(Type::BUILTIN_TYPE_STRING, true))
+            ->withDescription('A converted name')
+            ->withReadable(true)
+            ->withWritable(true)
+            ->withRequired(false);
+        $propertyMetadataFactoryProphecy->create(Dummy::class, 'nameConverted')->willReturn($nameConvertedPropertyMetadata)->shouldBeCalled();
+        $propertyMetadataFactory = $propertyMetadataFactoryProphecy->reveal();
+
+        $nameConverterProphecy = $this->prophesize(NameConverterInterface::class);
+        $nameConverterProphecy->normalize('nameConverted')->willReturn('name_converted')->shouldBeCalled();
+        $nameConverter = $nameConverterProphecy->reveal();
+
+        $apiPlatformParser = new ApiPlatformParser($resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory, $nameConverter);
+
+        $actual = $apiPlatformParser->parse([
+            'class' => sprintf('%s:%s:%s', ApiPlatformParser::OUT_PREFIX, Dummy::class, 'get'),
+        ]);
+
+        $this->assertEquals([
+            'name_converted' => [
+                'dataType' => DataTypes::STRING,
+                'required' => false,
+                'description' => 'A converted name',
+                'readonly' => false,
             ],
         ], $actual);
     }

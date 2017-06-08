@@ -130,8 +130,7 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
             foreach ($filter->getDescription($resourceClass) as $variable => $data) {
                 $variables[] = $variable;
                 $mapping[] = [
-                    '@type' => 'hydra:IriTemplateMapping',
-                    // '@type' => 'IriTemplateMapping',
+                    '@type' => 'IriTemplateMapping',
                     'variable' => $variable,
                     'property' => $data['property'],
                     'required' => $data['required'],

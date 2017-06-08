@@ -45,7 +45,7 @@ final class DeserializeListener
     public function onKernelRequest(GetResponseEvent $event)
     {
         $request = $event->getRequest();
-        if ($request->isMethodSafe() || $request->isMethod(Request::METHOD_DELETE)) {
+        if ($request->isMethodSafe(false) || $request->isMethod(Request::METHOD_DELETE)) {
             return;
         }
 
@@ -80,7 +80,7 @@ final class DeserializeListener
      *
      * @return string
      */
-    private function getFormat(Request $request) : string
+    private function getFormat(Request $request): string
     {
         $contentType = $request->headers->get('CONTENT_TYPE');
         if (null === $contentType) {

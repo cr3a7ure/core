@@ -75,7 +75,7 @@ Feature: Date filter on collections
         "hydra:view": {
           "type": "object",
           "properties": {
-            "@id": {"pattern": "^/dummies\\?dummyDate%5Bbefore%5D=2015-04-05\\&page=1$"},
+            "@id": {"pattern": "^/dummies\\?dummyDate%5Bbefore%5D=2015-04-05&page=1$"},
             "@type": {"pattern": "^hydra:PartialCollectionView$"}
           }
         }
@@ -152,7 +152,7 @@ Feature: Date filter on collections
         "hydra:view": {
           "type": "object",
           "properties": {
-            "@id": {"pattern": "^/dummies\\?dummyDate%5Bbefore%5D=2015-04-05Z\\&page=1$"},
+            "@id": {"pattern": "^/dummies\\?dummyDate%5Bbefore%5D=2015-04-05Z&page=1$"},
             "@type": {"pattern": "^hydra:PartialCollectionView$"}
           }
         }
@@ -191,7 +191,7 @@ Feature: Date filter on collections
         "hydra:view": {
           "type": "object",
           "properties": {
-            "@id": {"pattern": "^/dummies\\?dummyDate%5Bbefore%5D=2015-04-05\\&dummyDate%5Bafter%5D=2015-04-05$"},
+            "@id": {"pattern": "^/dummies\\?dummyDate%5Bbefore%5D=2015-04-05&dummyDate%5Bafter%5D=2015-04-05$"},
             "@type": {"pattern": "^hydra:PartialCollectionView$"}
           }
         }
@@ -256,7 +256,7 @@ Feature: Date filter on collections
         "hydra:view": {
           "type": "object",
           "properties": {
-            "@id": {"pattern": "^/dummies\\?dummyDate%5Bafter%5D=2015-04-06\\&dummyDate%5Bbefore%5D=2015-04-04$"},
+            "@id": {"pattern": "^/dummies\\?dummyDate%5Bafter%5D=2015-04-06&dummyDate%5Bbefore%5D=2015-04-04$"},
             "@type": {"pattern": "^hydra:PartialCollectionView$"}
           }
         }
@@ -296,8 +296,11 @@ Feature: Date filter on collections
           "maxItems": 3
         },
         "hydra:view": {
-          "@id": {"pattern": "^/dummies\\?relatedDummy\\.dummyDate%5Bafter%5D=2015-04-28$"},
-          "@type": {"pattern": "^hydra:PartialCollectionView$"}
+          "type": "object",
+          "properties": {
+            "@id": {"pattern": "^/dummies\\?relatedDummy\\.dummyDate%5Bafter%5D=2015-04-28$"},
+            "@type": {"pattern": "^hydra:PartialCollectionView$"}
+          }
         }
       }
     }
@@ -334,7 +337,7 @@ Feature: Date filter on collections
         "hydra:view": {
           "type": "object",
           "properties": {
-            "@id": {"pattern": "^/dummies\\?relatedDummy\\.dummyDate%5Bafter%5D=2015-04-28\\&relatedDummy_dummyDate%5Bafter%5D=2015-04-28$"},
+            "@id": {"pattern": "^/dummies\\?relatedDummy\\.dummyDate%5Bafter%5D=2015-04-28&relatedDummy_dummyDate%5Bafter%5D=2015-04-28$"},
             "@type": {"pattern": "^hydra:PartialCollectionView$"}
           }
         }
@@ -371,8 +374,11 @@ Feature: Date filter on collections
           "maxItems": 3
         },
         "hydra:view": {
-          "@id": {"pattern": "^/dummies\\?relatedDummy\\.dummyDate%5Bafter%5D=2015-04-28T00%3A00%3A00%2B00%3A00$"},
-          "@type": {"pattern": "^hydra:PartialCollectionView$"}
+          "type": "object",
+          "properties": {
+            "@id": {"pattern": "^/dummies\\?relatedDummy\\.dummyDate%5Bafter%5D=2015-04-28T00%3A00%3A00%2B00%3A00$"},
+            "@type": {"pattern": "^hydra:PartialCollectionView$"}
+          }
         }
       }
     }
@@ -389,18 +395,18 @@ Feature: Date filter on collections
     And the JSON should be equal to:
     """
     {
-          "@context": "\/contexts\/Dummy",
-          "@id": "\/dummies",
+          "@context": "/contexts/Dummy",
+          "@id": "/dummies",
           "@type": "hydra:Collection",
           "hydra:member": [],
           "hydra:totalItems": 0,
           "hydra:view": {
-              "@id": "\/dummies?relatedDummy.dummyDate%5Bafter%5D=2015-04-28",
+              "@id": "/dummies?relatedDummy.dummyDate%5Bafter%5D=2015-04-28",
               "@type": "hydra:PartialCollectionView"
           },
           "hydra:search": {
               "@type": "hydra:IriTemplate",
-              "hydra:template": "\/dummies{?id,id[],name,alias,description,relatedDummy.name,relatedDummy.name[],relatedDummies,relatedDummies[],dummy,order[id],order[name],order[relatedDummy.symfony],dummyDate[before],dummyDate[after],relatedDummy.dummyDate[before],relatedDummy.dummyDate[after],dummyPrice[between],dummyPrice[gt],dummyPrice[gte],dummyPrice[lt],dummyPrice[lte],dummyBoolean,dummyPrice}",
+              "hydra:template": "/dummies{?id,id[],name,alias,description,relatedDummy.name,relatedDummy.name[],relatedDummies,relatedDummies[],dummy,relatedDummies.name,order[id],order[name],order[relatedDummy.symfony],dummyDate[before],dummyDate[after],relatedDummy.dummyDate[before],relatedDummy.dummyDate[after],dummyFloat[between],dummyFloat[gt],dummyFloat[gte],dummyFloat[lt],dummyFloat[lte],dummyPrice[between],dummyPrice[gt],dummyPrice[gte],dummyPrice[lt],dummyPrice[lte],dummyBoolean,dummyFloat,dummyPrice}",
               "hydra:variableRepresentation": "BasicRepresentation",
               "hydra:mapping": [
                   {
@@ -465,6 +471,12 @@ Feature: Date filter on collections
                   },
                   {
                       "@type": "IriTemplateMapping",
+                      "variable": "relatedDummies.name",
+                      "property": "relatedDummies.name",
+                      "required": false
+                  },
+                  {
+                      "@type": "IriTemplateMapping",
                       "variable": "order[id]",
                       "property": "id",
                       "required": false
@@ -507,6 +519,36 @@ Feature: Date filter on collections
                   },
                   {
                       "@type": "IriTemplateMapping",
+                      "variable": "dummyFloat[between]",
+                      "property": "dummyFloat",
+                      "required": false
+                  },
+                  {
+                      "@type": "IriTemplateMapping",
+                      "variable": "dummyFloat[gt]",
+                      "property": "dummyFloat",
+                      "required": false
+                  },
+                  {
+                      "@type": "IriTemplateMapping",
+                      "variable": "dummyFloat[gte]",
+                      "property": "dummyFloat",
+                      "required": false
+                  },
+                  {
+                      "@type": "IriTemplateMapping",
+                      "variable": "dummyFloat[lt]",
+                      "property": "dummyFloat",
+                      "required": false
+                  },
+                  {
+                      "@type": "IriTemplateMapping",
+                      "variable": "dummyFloat[lte]",
+                      "property": "dummyFloat",
+                      "required": false
+                  },
+                  {
+                      "@type": "IriTemplateMapping",
                       "variable": "dummyPrice[between]",
                       "property": "dummyPrice",
                       "required": false
@@ -539,6 +581,12 @@ Feature: Date filter on collections
                       "@type": "IriTemplateMapping",
                       "variable": "dummyBoolean",
                       "property": "dummyBoolean",
+                      "required": false
+                  },
+                  {
+                      "@type": "IriTemplateMapping",
+                      "variable": "dummyFloat",
+                      "property": "dummyFloat",
                       "required": false
                   },
                   {

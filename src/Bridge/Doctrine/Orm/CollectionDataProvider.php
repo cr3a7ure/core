@@ -12,7 +12,7 @@
 namespace ApiPlatform\Core\Bridge\Doctrine\Orm;
 
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryCollectionExtensionInterface;
-use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryResultExtensionInterface;
+use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryResultCollectionExtensionInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGenerator;
 use ApiPlatform\Core\DataProvider\CollectionDataProviderInterface;
 use ApiPlatform\Core\Exception\ResourceClassNotSupportedException;
@@ -42,6 +42,8 @@ class CollectionDataProvider implements CollectionDataProviderInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @throws RuntimeException
      */
     public function getCollection(string $resourceClass, string $operationName = null)
     {
@@ -60,10 +62,8 @@ class CollectionDataProvider implements CollectionDataProviderInterface
         foreach ($this->collectionExtensions as $extension) {
             $extension->applyToCollection($queryBuilder, $queryNameGenerator, $resourceClass, $operationName);
 
-            if ($extension instanceof QueryResultExtensionInterface) {
-                if ($extension->supportsResult($resourceClass, $operationName)) {
-                    return $extension->getResult($queryBuilder);
-                }
+            if ($extension instanceof QueryResultCollectionExtensionInterface && $extension->supportsResult($resourceClass, $operationName)) {
+                return $extension->getResult($queryBuilder);
             }
         }
 

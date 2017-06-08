@@ -16,7 +16,7 @@ use ApiPlatform\Core\PathResolver\OperationPathResolverInterface;
 use Symfony\Component\Routing\RouterInterface;
 
 /**
- * Resolves the operations path using a symfony route.
+ * Resolves the operations path using a Symfony route.
  *
  * @author Guilhem N. <egetick@gmail.com>
  */
@@ -33,8 +33,10 @@ final class RouterOperationPathResolver implements OperationPathResolverInterfac
 
     /**
      * {@inheritdoc}
+     *
+     * @throws InvalidArgumentException
      */
-    public function resolveOperationPath(string $resourceShortName, array $operation, bool $collection) : string
+    public function resolveOperationPath(string $resourceShortName, array $operation, bool $collection): string
     {
         if (!isset($operation['route_name'])) {
             return $this->deferred->resolveOperationPath($resourceShortName, $operation, $collection);

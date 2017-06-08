@@ -28,7 +28,7 @@ publicly**. We will disclose details of the issue and credit you after having re
 ### Writing a Pull Request
 
 First of all, you must decide on what branch your changes will be based. If the changes your are going to make are
-fully backward-compatible, you should base your changes on the latest stable branch (`1.0` at the moment).
+fully backward-compatible, you should base your changes on the latest stable branch (`2.0` at the moment).
 Otherwise, you should base your changes on the `master` branch.
 
 ### Matching coding standards
@@ -49,7 +49,7 @@ When you send a PR, just make sure that:
 
 * You add valid test cases (Behat and PHPUnit).
 * Tests are green.
-* You make a PR on the related documentation in the [api-platform/doc](https://github.com/api-platform/doc) repository.
+* You make a PR on the related documentation in the [api-platform/docs](https://github.com/api-platform/docs) repository.
 * You make the PR on the same branch you based your changes on. If you see commits
 that you did not make in your PR, you're doing it wrong.
 * Also don't forget to add a comment when you update a PR with a ping to the maintainer (`@dunglas`, `@sroze` or `@theofidry`), so he/she will get a notification.

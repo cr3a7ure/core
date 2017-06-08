@@ -20,8 +20,12 @@ use Doctrine\ORM\QueryBuilder;
  * @author Teoh Han Hui <teohhanhui@gmail.com>
  * @author Vincent Chalamon <vincentchalamon@gmail.com>
  */
-abstract class QueryChecker
+final class QueryChecker
 {
+    private function __construct()
+    {
+    }
+
     /**
      * Determines whether the query builder uses a HAVING clause.
      *
@@ -29,7 +33,7 @@ abstract class QueryChecker
      *
      * @return bool
      */
-    public static function hasHavingClause(QueryBuilder $queryBuilder) : bool
+    public static function hasHavingClause(QueryBuilder $queryBuilder): bool
     {
         return !empty($queryBuilder->getDQLPart('having'));
     }
@@ -42,7 +46,7 @@ abstract class QueryChecker
      *
      * @return bool
      */
-    public static function hasRootEntityWithForeignKeyIdentifier(QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry) : bool
+    public static function hasRootEntityWithForeignKeyIdentifier(QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry): bool
     {
         return self::hasRootEntityWithIdentifier($queryBuilder, $managerRegistry, true);
     }
@@ -55,7 +59,7 @@ abstract class QueryChecker
      *
      * @return bool
      */
-    public static function hasRootEntityWithCompositeIdentifier(QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry) : bool
+    public static function hasRootEntityWithCompositeIdentifier(QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry): bool
     {
         return self::hasRootEntityWithIdentifier($queryBuilder, $managerRegistry, false);
     }
@@ -69,7 +73,7 @@ abstract class QueryChecker
      *
      * @return bool
      */
-    private static function hasRootEntityWithIdentifier(QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry, bool $isForeign) : bool
+    private static function hasRootEntityWithIdentifier(QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry, bool $isForeign): bool
     {
         foreach ($queryBuilder->getRootEntities() as $rootEntity) {
             $rootMetadata = $managerRegistry
@@ -91,7 +95,7 @@ abstract class QueryChecker
      *
      * @return bool
      */
-    public static function hasMaxResults(QueryBuilder $queryBuilder) : bool
+    public static function hasMaxResults(QueryBuilder $queryBuilder): bool
     {
         return null !== $queryBuilder->getMaxResults();
     }
@@ -105,7 +109,7 @@ abstract class QueryChecker
      *
      * @return bool
      */
-    public static function hasOrderByOnToManyJoin(QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry) : bool
+    public static function hasOrderByOnToManyJoin(QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry): bool
     {
         if (
             empty($orderByParts = $queryBuilder->getDQLPart('orderBy')) ||
@@ -128,16 +132,13 @@ abstract class QueryChecker
         }
 
         if (!empty($orderByAliases)) {
-            foreach ($joinParts as $rootAlias => $joins) {
+            foreach ($joinParts as $joins) {
                 foreach ($joins as $join) {
                     $alias = QueryJoinParser::getJoinAlias($join);
 
                     if (isset($orderByAliases[$alias])) {
                         $relationship = QueryJoinParser::getJoinRelationship($join);
-
-                        $relationshipParts = explode('.', $relationship);
-                        $parentAlias = $relationshipParts[0];
-                        $association = $relationshipParts[1];
+                        list($parentAlias, $association) = explode('.', $relationship);
 
                         $parentMetadata = QueryJoinParser::getClassMetadataFromJoinAlias($parentAlias, $queryBuilder, $managerRegistry);
 

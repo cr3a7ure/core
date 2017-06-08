@@ -23,8 +23,12 @@ use Doctrine\ORM\QueryBuilder;
  * @author Teoh Han Hui <teohhanhui@gmail.com>
  * @author Vincent Chalamon <vincentchalamon@gmail.com>
  */
-abstract class QueryJoinParser
+final class QueryJoinParser
 {
+    private function __construct()
+    {
+    }
+
     /**
      * Gets the class metadata from a given join alias.
      *
@@ -34,7 +38,7 @@ abstract class QueryJoinParser
      *
      * @return ClassMetadata
      */
-    public static function getClassMetadataFromJoinAlias(string $alias, QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry) : ClassMetadata
+    public static function getClassMetadataFromJoinAlias(string $alias, QueryBuilder $queryBuilder, ManagerRegistry $managerRegistry): ClassMetadata
     {
         $rootEntities = $queryBuilder->getRootEntities();
         $rootAliases = $queryBuilder->getRootAliases();
@@ -100,7 +104,7 @@ abstract class QueryJoinParser
      *
      * @return string
      */
-    public static function getJoinRelationship(Join $join) : string
+    public static function getJoinRelationship(Join $join): string
     {
         static $relationshipProperty = null;
         static $initialized = false;
@@ -122,7 +126,7 @@ abstract class QueryJoinParser
      *
      * @return string
      */
-    public static function getJoinAlias(Join $join) : string
+    public static function getJoinAlias(Join $join): string
     {
         static $aliasProperty = null;
         static $initialized = false;
@@ -144,7 +148,7 @@ abstract class QueryJoinParser
      *
      * @return string[]
      */
-    public static function getOrderByParts(OrderBy $orderBy) : array
+    public static function getOrderByParts(OrderBy $orderBy): array
     {
         static $partsProperty = null;
         static $initialized = false;

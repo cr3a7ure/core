@@ -28,7 +28,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Samuel ROZE <samuel.roze@gmail.com>
  */
-class PaginationExtension implements QueryResultExtensionInterface
+final class PaginationExtension implements QueryResultCollectionExtensionInterface
 {
     private $managerRegistry;
     private $requestStack;
@@ -86,7 +86,7 @@ class PaginationExtension implements QueryResultExtensionInterface
     /**
      * {@inheritdoc}
      */
-    public function supportsResult(string $resourceClass, string $operationName = null) : bool
+    public function supportsResult(string $resourceClass, string $operationName = null): bool
     {
         $request = $this->requestStack->getCurrentRequest();
         if (null === $request) {
@@ -109,7 +109,7 @@ class PaginationExtension implements QueryResultExtensionInterface
         return new Paginator($doctrineOrmPaginator);
     }
 
-    private function isPaginationEnabled(Request $request, ResourceMetadata $resourceMetadata, string $operationName = null) : bool
+    private function isPaginationEnabled(Request $request, ResourceMetadata $resourceMetadata, string $operationName = null): bool
     {
         $enabled = $resourceMetadata->getCollectionOperationAttribute($operationName, 'pagination_enabled', $this->enabled, true);
         $clientEnabled = $resourceMetadata->getCollectionOperationAttribute($operationName, 'pagination_client_enabled', $this->clientEnabled, true);
@@ -142,7 +142,7 @@ class PaginationExtension implements QueryResultExtensionInterface
      *
      * @return bool
      */
-    private function useOutputWalkers(QueryBuilder $queryBuilder) : bool
+    private function useOutputWalkers(QueryBuilder $queryBuilder): bool
     {
         /*
          * "Cannot count query that uses a HAVING clause. Use the output walkers for pagination"

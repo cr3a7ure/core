@@ -11,14 +11,19 @@
 
 namespace ApiPlatform\Core\Bridge\Symfony\Bundle\DependencyInjection;
 
+use ApiPlatform\Core\Exception\InvalidArgumentException;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Serializer\Exception\ExceptionInterface;
 
 /**
  * The configuration of the bundle.
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
+ * @author Baptiste Meyer <baptiste.meyer@gmail.com>
  */
 final class Configuration implements ConfigurationInterface
 {
@@ -37,11 +42,21 @@ final class Configuration implements ConfigurationInterface
                 ->scalarNode('version')->defaultValue('0.0.0')->info('The version of the API.')->end()
                 ->scalarNode('default_operation_path_resolver')->defaultValue('api_platform.operation_path_resolver.underscore')->info('Specify the default operation path resolver to use for generating resources operations path.')->end()
                 ->scalarNode('name_converter')->defaultNull()->info('Specify a name converter to use.')->end()
+                ->arrayNode('eager_loading')
+                    ->canBeDisabled()
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('enabled')->defaultTrue()->info('To enable or disable eager loading')->end()
+                        ->integerNode('max_joins')->defaultValue(30)->info('Max number of joined relations before EagerLoading throws a RuntimeException')->end()
+                        ->booleanNode('force_eager')->defaultTrue()->info('Force join on every relation. If disabled, it will only join relations having the EAGER fetch mode.')->end()
+                    ->end()
+                ->end()
                 ->booleanNode('enable_fos_user')->defaultValue(false)->info('Enable the FOSUserBundle integration.')->end()
                 ->booleanNode('enable_nelmio_api_doc')->defaultValue(false)->info('Enable the Nelmio Api doc integration.')->end()
                 ->booleanNode('enable_swagger')->defaultValue(true)->info('Enable the Swagger documentation and export.')->end()
+                ->booleanNode('enable_swagger_ui')->defaultValue(true)->info('Enable Swagger ui.')->end()
 
-            ->arrayNode('collection')
+                ->arrayNode('collection')
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->scalarNode('order')->defaultNull()->info('The default order of results.')->end()
@@ -64,9 +79,12 @@ final class Configuration implements ConfigurationInterface
                 ->end()
             ->end();
 
+        $this->addExceptionToStatusSection($rootNode);
+
         $this->addFormatSection($rootNode, 'formats', [
             'jsonld' => ['mime_types' => ['application/ld+json']],
-            'json' => ['mime_types' => ['application/json']], // Enabled by default to have Swagger support
+            'json' => ['mime_types' => ['application/json']], // Swagger support
+            'html' => ['mime_types' => ['text/html']], // Swagger UI support
         ]);
         $this->addFormatSection($rootNode, 'error_formats', [
             'jsonproblem' => ['mime_types' => ['application/problem+json']],
@@ -74,6 +92,58 @@ final class Configuration implements ConfigurationInterface
         ]);
 
         return $treeBuilder;
+    }
+
+    /**
+     * Adds an exception to status section.
+     *
+     * @param ArrayNodeDefinition $rootNode
+     *
+     * @throws InvalidConfigurationException
+     */
+    private function addExceptionToStatusSection(ArrayNodeDefinition $rootNode)
+    {
+        $rootNode
+            ->children()
+                ->arrayNode('exception_to_status')
+                    ->defaultValue([
+                        ExceptionInterface::class => Response::HTTP_BAD_REQUEST,
+                        InvalidArgumentException::class => Response::HTTP_BAD_REQUEST,
+                    ])
+                    ->info('The list of exceptions mapped to their HTTP status code.')
+                    ->normalizeKeys(false)
+                    ->useAttributeAsKey('exception_class')
+                    ->beforeNormalization()
+                        ->ifArray()
+                        ->then(function (array $exceptionToStatus) {
+                            foreach ($exceptionToStatus as &$httpStatusCode) {
+                                if (is_int($httpStatusCode)) {
+                                    continue;
+                                }
+
+                                if (defined($httpStatusCodeConstant = sprintf('%s::%s', Response::class, $httpStatusCode))) {
+                                    $httpStatusCode = constant($httpStatusCodeConstant);
+                                }
+                            }
+
+                            return $exceptionToStatus;
+                        })
+                    ->end()
+                    ->prototype('integer')->end()
+                    ->validate()
+                        ->ifArray()
+                        ->then(function (array $exceptionToStatus) {
+                            foreach ($exceptionToStatus as $httpStatusCode) {
+                                if ($httpStatusCode < 100 || $httpStatusCode >= 600) {
+                                    throw new InvalidConfigurationException(sprintf('The HTTP status code "%s" is not valid.', $httpStatusCode));
+                                }
+                            }
+
+                            return $exceptionToStatus;
+                        })
+                    ->end()
+                ->end()
+            ->end();
     }
 
     /**

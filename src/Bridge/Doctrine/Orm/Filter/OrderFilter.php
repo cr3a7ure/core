@@ -14,11 +14,19 @@ namespace ApiPlatform\Core\Bridge\Doctrine\Orm\Filter;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGeneratorInterface;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\QueryBuilder;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Order the collection by given properties.
+ *
+ * The ordering is done in the same sequence as they are specified in the query,
+ * and for each property a direction value can be specified.
+ *
+ * For each property passed, if the resource does not have such property or if the
+ * direction value is different from "asc" or "desc" (case insensitive), the property
+ * is ignored.
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Théo FIDRY <theo.fidry@gmail.com>
@@ -26,69 +34,21 @@ use Symfony\Component\HttpFoundation\RequestStack;
 class OrderFilter extends AbstractFilter
 {
     /**
-     * @var string Keyword used to retrieve the value.
+     * @var string Keyword used to retrieve the value
      */
-    private $orderParameterName;
+    protected $orderParameterName;
 
-    /**
-     * @var RequestStack
-     */
-    private $requestStack;
-
-    public function __construct(ManagerRegistry $managerRegistry, RequestStack $requestStack, string $orderParameterName, array $properties = null)
+    public function __construct(ManagerRegistry $managerRegistry, RequestStack $requestStack, string $orderParameterName, LoggerInterface $logger = null, array $properties = null)
     {
-        parent::__construct($managerRegistry, $properties);
+        parent::__construct($managerRegistry, $requestStack, $logger, $properties);
 
         $this->orderParameterName = $orderParameterName;
-        $this->requestStack = $requestStack;
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * Orders collection by properties. The order of the ordered properties is the same as the order specified in the
-     * query.
-     * For each property passed, if the resource does not have such property or if the order value is different from
-     * `asc` or `desc` (case insensitive), the property is ignored.
-     */
-    public function apply(QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $resourceClass, string $operationName = null)
-    {
-        $request = $this->requestStack->getCurrentRequest();
-        if (null === $request) {
-            return;
-        }
-
-        $properties = $this->extractProperties($request);
-
-        foreach ($properties as $property => $order) {
-            if (!$this->isPropertyEnabled($property) || !$this->isPropertyMapped($property, $resourceClass)) {
-                continue;
-            }
-
-            if (empty($order) && isset($this->properties[$property])) {
-                $order = $this->properties[$property];
-            }
-
-            $order = strtoupper($order);
-            if (!in_array($order, ['ASC', 'DESC'])) {
-                continue;
-            }
-
-            $alias = 'o';
-            $field = $property;
-
-            if ($this->isPropertyNested($property)) {
-                list($alias, $field) = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator);
-            }
-
-            $queryBuilder->addOrderBy(sprintf('%s.%s', $alias, $field), $order);
-        }
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getDescription(string $resourceClass) : array
+    public function getDescription(string $resourceClass): array
     {
         $description = [];
 
@@ -97,7 +57,7 @@ class OrderFilter extends AbstractFilter
             $properties = array_fill_keys($this->getClassMetadata($resourceClass)->getFieldNames(), null);
         }
 
-        foreach ($properties as $property => $order) {
+        foreach ($properties as $property => $defaultDirection) {
             if (!$this->isPropertyMapped($property, $resourceClass)) {
                 continue;
             }
@@ -115,7 +75,36 @@ class OrderFilter extends AbstractFilter
     /**
      * {@inheritdoc}
      */
-    protected function extractProperties(Request $request) : array
+    protected function filterProperty(string $property, $direction, QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $resourceClass, string $operationName = null)
+    {
+        if (!$this->isPropertyEnabled($property) || !$this->isPropertyMapped($property, $resourceClass)) {
+            return;
+        }
+
+        if (empty($direction) && isset($this->properties[$property])) {
+            // fallback to default direction
+            $direction = $this->properties[$property];
+        }
+
+        $direction = strtoupper($direction);
+        if (!in_array($direction, ['ASC', 'DESC'])) {
+            return;
+        }
+
+        $alias = 'o';
+        $field = $property;
+
+        if ($this->isPropertyNested($property)) {
+            list($alias, $field) = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator);
+        }
+
+        $queryBuilder->addOrderBy(sprintf('%s.%s', $alias, $field), $direction);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function extractProperties(Request $request): array
     {
         return $request->query->get($this->orderParameterName, []);
     }
