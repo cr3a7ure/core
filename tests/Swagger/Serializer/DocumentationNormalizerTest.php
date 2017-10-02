@@ -78,7 +78,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create(Dummy::class, [])->shouldBeCalled()->willReturn(new PropertyNameCollection(['id', 'name']));
 
-        $dummyMetadata = new ResourceMetadata('Dummy', 'This is a dummy.', 'http://schema.example.com/Dummy', ['get' => ['method' => 'GET'], 'put' => ['method' => 'PUT']], ['get' => ['method' => 'GET'], 'post' => ['method' => 'POST'], 'custom' => ['method' => 'GET', 'path' => '/foo'], 'custom2' => ['method' => 'POST', 'path' => '/foo']], ['pagination_client_items_per_page' => true]);
+        $dummyMetadata = new ResourceMetadata('Dummy', 'This is a dummy.', 'http://schema.example.com/Dummy', 'http://schema.example.com/Dummy', ['get' => ['method' => 'GET'], 'put' => ['method' => 'PUT']], ['get' => ['method' => 'GET'], 'post' => ['method' => 'POST'], 'custom' => ['method' => 'GET', 'path' => '/foo'], 'custom2' => ['method' => 'POST', 'path' => '/foo']], ['pagination_client_items_per_page' => true]);
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
         $resourceMetadataFactoryProphecy->create(Dummy::class)->shouldBeCalled()->willReturn($dummyMetadata);
 
@@ -311,7 +311,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create(Dummy::class, [])->shouldBeCalled()->willReturn(new PropertyNameCollection(['name', 'nameConverted']));
 
-        $dummyMetadata = new ResourceMetadata('Dummy', 'This is a dummy.', null, ['get' => ['method' => 'GET']], [], []);
+        $dummyMetadata = new ResourceMetadata('Dummy', 'This is a dummy.', null, null, ['get' => ['method' => 'GET']], [], []);
 
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
         $resourceMetadataFactoryProphecy->create(Dummy::class)->shouldBeCalled()->willReturn($dummyMetadata);
@@ -422,7 +422,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create(Dummy::class, [])->shouldBeCalled()->willReturn(new PropertyNameCollection(['name']));
 
-        $dummyMetadata = new ResourceMetadata('Dummy', 'This is a dummy.', null, ['get' => ['method' => 'GET']], [], []);
+        $dummyMetadata = new ResourceMetadata('Dummy', 'This is a dummy.', null, null, ['get' => ['method' => 'GET']], [], []);
 
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
         $resourceMetadataFactoryProphecy->create(Dummy::class)->shouldBeCalled()->willReturn($dummyMetadata);
@@ -554,6 +554,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
         $dummyMetadata = new ResourceMetadata(
             'Dummy',
             'This is a dummy.',
+            'http://schema.example.com/Dummy',
             'http://schema.example.com/Dummy',
             [
                 'get' => ['method' => 'GET'],
@@ -746,6 +747,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
             'Dummy',
             'This is a dummy.',
             'http://schema.example.com/Dummy',
+            'http://schema.example.com/Dummy',
             [
                 'get' => ['method' => 'GET'],
                 'put' => ['method' => 'PUT', 'denormalization_context' => ['groups' => 'dummy']],
@@ -936,6 +938,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
         $dummyMetadata = new ResourceMetadata(
             'Dummy',
             'This is a dummy.',
+            'http://schema.example.com/Dummy',
             'http://schema.example.com/Dummy',
             [
                 'get' => ['method' => 'GET'],
@@ -1221,6 +1224,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
             'Dummy',
             'This is a dummy.',
             null,
+            null,
             [],
             [],
             []
@@ -1270,6 +1274,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
         $dummyMetadata = new ResourceMetadata(
             'Dummy',
             'This is a dummy.',
+            null,
             null,
             [],
             ['get' => ['method' => 'FOO']],
@@ -1337,6 +1342,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
             'Dummy',
             'This is a dummy.',
             'http://schema.example.com/Dummy',
+            'http://schema.example.com/Dummy',
             [
                 'get' => ['method' => 'GET'],
                 'put' => ['method' => 'PUT', 'normalization_context' => ['groups' => $groups]],
@@ -1351,6 +1357,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
         $relatedDummyMetadata = new ResourceMetadata(
             'RelatedDummy',
             'This is a related dummy.',
+            'http://schema.example.com/RelatedDummy',
             'http://schema.example.com/RelatedDummy',
             [
                 'get' => ['method' => 'GET'],
@@ -1553,6 +1560,7 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
             'Dummy',
             'This is a dummy.',
             null,
+            null,
             [],
             ['get' => ['method' => 'GET', 'filters' => ['f1', 'f2', 'f3']]],
             []
@@ -1655,8 +1663,8 @@ class DocumentationNormalizerTest extends \PHPUnit_Framework_TestCase
         $propertyNameCollectionFactoryProphecy->create(Question::class, Argument::any())->shouldBeCalled()->willReturn(new PropertyNameCollection(['answer']));
         $propertyNameCollectionFactoryProphecy->create(Answer::class, Argument::any())->shouldBeCalled()->willReturn(new PropertyNameCollection(['content']));
 
-        $questionMetadata = new ResourceMetadata('Question', 'This is a question.', 'http://schema.example.com/Question', ['get' => ['method' => 'GET']]);
-        $answerMetadata = new ResourceMetadata('Answer', 'This is an answer.', 'http://schema.example.com/Answer', [], ['get' => ['method' => 'GET']]);
+        $questionMetadata = new ResourceMetadata('Question', 'This is a question.', 'http://schema.example.com/Question', 'http://schema.example.com/Question', ['get' => ['method' => 'GET']]);
+        $answerMetadata = new ResourceMetadata('Answer', 'This is an answer.', 'http://schema.example.com/Answer', 'http://schema.example.com/Answer', [], ['get' => ['method' => 'GET']]);
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
         $resourceMetadataFactoryProphecy->create(Question::class)->shouldBeCalled()->willReturn($questionMetadata);
         $resourceMetadataFactoryProphecy->create(Answer::class)->shouldBeCalled()->willReturn($answerMetadata);
