@@ -3,9 +3,11 @@ default:
     default:
       contexts:
         - 'FeatureContext': { doctrine: '@doctrine' }
+        - 'GraphqlContext'
         - 'HydraContext'
         - 'SwaggerContext'
         - 'HttpCacheContext'
+        - 'JsonApiContext': { doctrine: '@doctrine', jsonApiSchemaFile: 'tests/Fixtures/JsonSchema/jsonapi.json' }
         - 'Behat\MinkExtension\Context\MinkContext'
         - 'Behatch\Context\RestContext'
         - 'Behatch\Context\JsonContext'
@@ -28,9 +30,11 @@ coverage:
     default:
       contexts:
         - 'FeatureContext': { doctrine: '@doctrine' }
+        - 'GraphqlContext'
         - 'HydraContext'
         - 'SwaggerContext'
         - 'HttpCacheContext'
+        - 'JsonApiContext': { doctrine: '@doctrine', jsonApiSchemaFile: 'tests/Fixtures/JsonSchema/jsonapi.json' }
         - 'CoverageContext'
         - 'Behat\MinkExtension\Context\MinkContext'
         - 'Behatch\Context\RestContext'

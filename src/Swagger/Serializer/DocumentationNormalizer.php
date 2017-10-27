@@ -121,8 +121,9 @@ final class DocumentationNormalizer implements NormalizerInterface
 
             foreach ($this->subresourceOperationFactory->create($resourceClass) as $operationId => $subresourceOperation) {
                 $operationName = 'get';
-                $serializerContext = $this->getSerializerContext(OperationType::SUBRESOURCE, false, $resourceMetadata, $operationName);
-                $responseDefinitionKey = $this->getDefinition($definitions, $this->resourceMetadataFactory->create($subresourceOperation['resource_class']), $subresourceOperation['resource_class'], $serializerContext);
+                $subResourceMetadata = $this->resourceMetadataFactory->create($subresourceOperation['resource_class']);
+                $serializerContext = $this->getSerializerContext(OperationType::SUBRESOURCE, false, $subResourceMetadata, $operationName);
+                $responseDefinitionKey = $this->getDefinition($definitions, $subResourceMetadata, $subresourceOperation['resource_class'], $serializerContext);
 
                 $pathOperation = new \ArrayObject([]);
                 $pathOperation['tags'] = $subresourceOperation['shortNames'];
@@ -151,7 +152,7 @@ final class DocumentationNormalizer implements NormalizerInterface
                     }
                 }
 
-                if ($parameters = $this->getFiltersParameters($resourceClass, $operationName, $resourceMetadata, $definitions, $serializerContext)) {
+                if ($parameters = $this->getFiltersParameters($resourceClass, $operationName, $subResourceMetadata, $definitions, $serializerContext)) {
                     foreach ($parameters as $parameter) {
                         if (!in_array($parameter['name'], $parametersMemory, true)) {
                             $pathOperation['parameters'][] = $parameter;
@@ -247,6 +248,9 @@ final class DocumentationNormalizer implements NormalizerInterface
                 return $this->updateGetOperation($pathOperation, $mimeTypes, $operationType, $resourceMetadata, $resourceClass, $resourceShortName, $operationName, $definitions);
             case 'POST':
                 return $this->updatePostOperation($pathOperation, $mimeTypes, $operationType, $resourceMetadata, $resourceClass, $resourceShortName, $operationName, $definitions);
+            case 'PATCH':
+                $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Updates the %s resource.', $resourceShortName);
+                // no break
             case 'PUT':
                 return $this->updatePutOperation($pathOperation, $mimeTypes, $operationType, $resourceMetadata, $resourceClass, $resourceShortName, $operationName, $definitions);
             case 'DELETE':
@@ -532,7 +536,7 @@ final class DocumentationNormalizer implements NormalizerInterface
 
         $valueSchema = $this->getType($builtinType, $isCollection, $className, $propertyMetadata->isReadableLink(), $definitions, $serializerContext);
 
-        return new \ArrayObject((array) $propertySchema + $valueSchema);
+        return new \ArrayObject((array) $propertySchema + $valueSchema + ($propertyMetadata->getAttributes()['swagger_context'] ?? []));
     }
 
     /**

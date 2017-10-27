@@ -113,9 +113,11 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $this->registerOAuthConfiguration($container, $config, $loader);
         $this->registerApiKeysConfiguration($container, $config, $loader);
         $this->registerSwaggerConfiguration($container, $config, $loader);
+        $this->registerJsonApiConfiguration($formats, $loader);
         $this->registerJsonLdConfiguration($formats, $loader);
         $this->registerJsonHalConfiguration($formats, $loader);
         $this->registerJsonProblemConfiguration($errorFormats, $loader);
+        $this->registerGraphqlConfiguration($container, $config, $loader);
         $this->registerBundlesConfiguration($bundles, $config, $loader, $useDoctrine);
         $this->registerCacheConfiguration($container);
         $this->registerDoctrineExtensionConfiguration($container, $config, $useDoctrine);
@@ -139,6 +141,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $container->setParameter('api_platform.exception_to_status', $config['exception_to_status']);
         $container->setParameter('api_platform.formats', $formats);
         $container->setParameter('api_platform.error_formats', $errorFormats);
+        $container->setParameter('api_platform.allow_plain_identifiers', $config['allow_plain_identifiers']);
         $container->setParameter('api_platform.eager_loading.enabled', $config['eager_loading']['enabled']);
         $container->setParameter('api_platform.eager_loading.max_joins', $config['eager_loading']['max_joins']);
         $container->setParameter('api_platform.eager_loading.fetch_partial', $config['eager_loading']['fetch_partial']);
@@ -205,12 +208,11 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $bundlesResourcesPaths = [];
 
         foreach ($container->getParameter('kernel.bundles_metadata') as $bundle) {
+            $paths = [];
             $dirname = $bundle['path'];
-
             foreach (['.yaml', '.yml', '.xml', ''] as $extension) {
                 $paths[] = $dirname.'/Resources/config/api_resources'.$extension;
             }
-
             $paths[] = $dirname.'/Entity';
 
             foreach ($paths as $path) {
@@ -311,6 +313,21 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
     }
 
     /**
+     * Registers the JsonApi configuration.
+     *
+     * @param array         $formats
+     * @param XmlFileLoader $loader
+     */
+    private function registerJsonApiConfiguration(array $formats, XmlFileLoader $loader)
+    {
+        if (!isset($formats['jsonapi'])) {
+            return;
+        }
+
+        $loader->load('jsonapi.xml');
+    }
+
+    /**
      * Registers the JSON-LD and Hydra configuration.
      *
      * @param array         $formats
@@ -354,6 +371,25 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         }
 
         $loader->load('problem.xml');
+    }
+
+    /**
+     * Registers the GraphQL configuration.
+     *
+     * @param ContainerBuilder $container
+     * @param array            $config
+     * @param XmlFileLoader    $loader
+     */
+    private function registerGraphqlConfiguration(ContainerBuilder $container, array $config, XmlFileLoader $loader)
+    {
+        if (!$config['graphql']) {
+            return;
+        }
+
+        $container->setParameter('api_platform.graphql.enabled', $config['graphql']['enabled']);
+        $container->setParameter('api_platform.graphql.graphiql.enabled', $config['graphql']['graphiql']['enabled']);
+
+        $loader->load('graphql.xml');
     }
 
     /**
@@ -429,10 +465,6 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         }
 
         $loader->load('http_cache_tags.xml');
-
-        if (!$config['http_cache']['invalidation']['varnish_urls']) {
-            return;
-        }
 
         $references = [];
         foreach ($config['http_cache']['invalidation']['varnish_urls'] as $url) {

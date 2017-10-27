@@ -15,6 +15,7 @@ namespace ApiPlatform\Core\Tests\Bridge\Symfony\Bundle\DependencyInjection;
 
 use ApiPlatform\Core\Bridge\Symfony\Bundle\DependencyInjection\Configuration;
 use ApiPlatform\Core\Exception\InvalidArgumentException;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 use Symfony\Component\Config\Definition\Processor;
@@ -25,7 +26,7 @@ use Symfony\Component\Serializer\Exception\ExceptionInterface;
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Baptiste Meyer <baptiste.meyer@gmail.com>
  */
-class ConfigurationTest extends \PHPUnit_Framework_TestCase
+class ConfigurationTest extends TestCase
 {
     /**
      * @var Configuration
@@ -70,13 +71,19 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
             'default_operation_path_resolver' => 'api_platform.operation_path_resolver.underscore',
             'path_segment_name_generator' => 'api_platform.path_segment_name_generator.underscore',
             'validator' => [
-                'serialize_payload_fields' => false,
+                'serialize_payload_fields' => [],
             ],
             'name_converter' => null,
             'enable_fos_user' => true,
             'enable_nelmio_api_doc' => false,
             'enable_swagger' => true,
             'enable_swagger_ui' => true,
+            'graphql' => [
+                'enabled' => true,
+                'graphiql' => [
+                    'enabled' => true,
+                ],
+            ],
             'oauth' => [
                 'enabled' => false,
                 'clientId' => '',
@@ -124,6 +131,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
                 'vary' => ['Accept'],
                 'public' => null,
             ],
+            'allow_plain_identifiers' => false,
         ], $config);
     }
 

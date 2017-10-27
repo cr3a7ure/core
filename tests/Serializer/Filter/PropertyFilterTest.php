@@ -15,12 +15,13 @@ namespace ApiPlatform\Core\Tests\Serializer\Filter;
 
 use ApiPlatform\Core\Serializer\Filter\PropertyFilter;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\DummyProperty;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * @author Baptiste Meyer <baptiste.meyer@gmail.com>
  */
-class PropertyFilterTest extends \PHPUnit_Framework_TestCase
+class PropertyFilterTest extends TestCase
 {
     public function testApply()
     {
@@ -56,13 +57,35 @@ class PropertyFilterTest extends \PHPUnit_Framework_TestCase
 
     public function testApplyWithPropertiesWhitelist()
     {
+        $request = new Request(['properties' => ['foo', 'bar', 'baz']]);
+        $context = ['attributes' => ['qux']];
+
+        $propertyFilter = new PropertyFilter('properties', false, ['bar', 'fuz', 'foo']);
+        $propertyFilter->apply($request, true, [], $context);
+
+        $this->assertEquals(['attributes' => ['qux', 'foo', 'bar']], $context);
+    }
+
+    public function testApplyWithPropertiesWhitelistWithNestedProperty()
+    {
         $request = new Request(['properties' => ['foo', 'bar', 'group' => ['baz' => ['baz', 'qux'], 'qux']]]);
         $context = ['attributes' => ['qux']];
 
-        $propertyFilter = new PropertyFilter('properties', false, ['foo', 'group' => ['baz' => ['qux']]]);
+        $propertyFilter = new PropertyFilter('properties', false, ['foo' => null, 'group' => ['baz' => ['qux']]]);
         $propertyFilter->apply($request, true, [], $context);
 
-        $this->assertEquals(['attributes' => ['qux', 'foo',  'group' => ['baz' => ['qux']]]], $context);
+        $this->assertEquals(['attributes' => ['qux', 'foo', 'group' => ['baz' => ['qux']]]], $context);
+    }
+
+    public function testApplyWithPropertiesWhitelistNotMatchingAnyProperty()
+    {
+        $request = new Request(['properties' => ['foo', 'bar', 'group' => ['baz' => ['baz', 'qux'], 'qux']]]);
+        $context = ['attributes' => ['qux']];
+
+        $propertyFilter = new PropertyFilter('properties', false, ['fuz', 'fiz']);
+        $propertyFilter->apply($request, true, [], $context);
+
+        $this->assertEquals(['attributes' => ['qux']], $context);
     }
 
     public function testApplyWithoutPropertiesWhitelistWithOverriding()
@@ -74,6 +97,28 @@ class PropertyFilterTest extends \PHPUnit_Framework_TestCase
         $propertyFilter->apply($request, true, [], $context);
 
         $this->assertEquals(['attributes' => ['foo', 'baz']], $context);
+    }
+
+    public function testApplyWithPropertiesInPropertyFilterAttribute()
+    {
+        $request = new Request(['properties' => ['foo', 'bar', 'baz']], [], ['_api_filter_property' => ['fooz']]);
+        $context = ['attributes' => ['foo', 'qux']];
+
+        $propertyFilter = new PropertyFilter();
+        $propertyFilter->apply($request, true, [], $context);
+
+        $this->assertEquals(['attributes' => ['foo', 'qux', 'fooz']], $context);
+    }
+
+    public function testApplyWithPropertiesInCommonFilterAttribute()
+    {
+        $request = new Request(['properties' => ['foo', 'bar', 'baz']], [], ['_api_filter_common' => ['properties' => ['fooz']]]);
+        $context = ['attributes' => ['foo', 'qux']];
+
+        $propertyFilter = new PropertyFilter();
+        $propertyFilter->apply($request, true, [], $context);
+
+        $this->assertEquals(['attributes' => ['foo', 'qux', 'fooz']], $context);
     }
 
     public function testApplyWithInvalidPropertiesInRequest()

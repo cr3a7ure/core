@@ -15,6 +15,7 @@ namespace ApiPlatform\Core\Tests\Hydra\Serializer;
 
 use ApiPlatform\Core\Api\UrlGeneratorInterface;
 use ApiPlatform\Core\Hydra\Serializer\ConstraintViolationListNormalizer;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationList;
@@ -22,13 +23,13 @@ use Symfony\Component\Validator\ConstraintViolationList;
 /**
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
-class ConstraintViolationNormalizerTest extends \PHPUnit_Framework_TestCase
+class ConstraintViolationNormalizerTest extends TestCase
 {
     public function testSupportNormalization()
     {
         $urlGeneratorProphecy = $this->prophesize(UrlGeneratorInterface::class);
 
-        $normalizer = new ConstraintViolationListNormalizer($urlGeneratorProphecy->reveal(), false);
+        $normalizer = new ConstraintViolationListNormalizer($urlGeneratorProphecy->reveal(), []);
 
         $this->assertTrue($normalizer->supportsNormalization(new ConstraintViolationList(), ConstraintViolationListNormalizer::FORMAT));
         $this->assertFalse($normalizer->supportsNormalization(new ConstraintViolationList(), 'xml'));
