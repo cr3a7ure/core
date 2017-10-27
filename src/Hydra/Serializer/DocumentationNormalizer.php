@@ -128,7 +128,7 @@ final class DocumentationNormalizer implements NormalizerInterface
     {
         $class = [
             '@id' => $prefixedShortName,
-            '@type' => 'hydra:Class',
+            '@type' => $resourceMetadata->getType() ? ['hydra:Class',$resourceMetadata->getType()] : 'hydra:Class',
             'rdfs:label' => $shortName,
             'hydra:title' => $shortName,
             'hydra:supportedProperty' => $this->getHydraProperties($resourceClass, $resourceMetadata, $shortName, $prefixedShortName),
@@ -459,9 +459,15 @@ final class DocumentationNormalizer implements NormalizerInterface
      */
     private function getProperty(PropertyMetadata $propertyMetadata, string $propertyName, string $prefixedShortName, string $shortName): array
     {
+        if ($propertyMetadata->getvocabType()) {
+            $propType = [$propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',$propertyMetadata->getvocabType()];
+        } else {
+            $propType = $propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link';
+        }
+
         $propertyData = [
             '@id' => $propertyMetadata->getIri() ?? "#$shortName/$propertyName",
-            '@type' => $propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',
+            '@type' => $propType,
             'rdfs:label' => $propertyName,
             'domain' => $prefixedShortName,
         ];
@@ -527,6 +533,7 @@ final class DocumentationNormalizer implements NormalizerInterface
     {
         return [
             '@vocab' => $this->urlGenerator->generate('api_doc', ['_format' => self::FORMAT], UrlGeneratorInterface::ABS_URL).'#',
+            '@base' => rtrim($this->urlGenerator->generate('api_entrypoint', [], UrlGeneratorInterface::ABS_URL),'/'),
             'hydra' => ContextBuilderInterface::HYDRA_NS,
             'rdf' => ContextBuilderInterface::RDF_NS,
             'rdfs' => ContextBuilderInterface::RDFS_NS,
