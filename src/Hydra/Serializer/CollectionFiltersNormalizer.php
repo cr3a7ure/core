@@ -36,17 +36,19 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
     private $collectionNormalizer;
     private $resourceMetadataFactory;
     private $resourceClassResolver;
+    public $filters;
 
     /**
      * @param ContainerInterface|FilterCollection $filterLocator The new filter locator or the deprecated filter collection
      */
-    public function __construct(NormalizerInterface $collectionNormalizer, ResourceMetadataFactoryInterface $resourceMetadataFactory, ResourceClassResolverInterface $resourceClassResolver, $filterLocator)
+    public function __construct(NormalizerInterface $collectionNormalizer, ResourceMetadataFactoryInterface $resourceMetadataFactory, ResourceClassResolverInterface $resourceClassResolver, FilterCollection $filters, $filterLocator)
     {
         $this->setFilterLocator($filterLocator);
 
         $this->collectionNormalizer = $collectionNormalizer;
         $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->resourceClassResolver = $resourceClassResolver;
+        $this->filters = $filters;
     }
 
     /**
@@ -119,7 +121,7 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
      *
      * @return array
      */
-    private function getSearch(string $resourceClass, array $parts, array $filters): array
+    public function getSearch(string $resourceClass, array $parts, array $filters): array
     {
         $variables = [];
         $mapping = [];
@@ -128,13 +130,12 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
                 $variables[] = $variable;
                 $mapping[] = [
                     '@type' => 'IriTemplateMapping',
-                    'variable' => $variable,
-                    'property' => $data['property'],
-                    'required' => $data['required'],
+                    'hydra:variable' => $variable,
+                    'hydra:property' => $data['property'],
+                    'hydra:required' => $data['required'],
                 ];
             }
         }
-
         return [
             '@type' => 'hydra:IriTemplate',
             'hydra:template' => sprintf('%s{?%s}', $parts['path'], implode(',', $variables)),
