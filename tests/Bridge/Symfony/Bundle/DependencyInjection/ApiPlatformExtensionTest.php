@@ -16,6 +16,7 @@ namespace ApiPlatform\Core\Tests\Bridge\Symfony\Bundle\DependencyInjection;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryCollectionExtensionInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryItemExtensionInterface;
 use ApiPlatform\Core\Bridge\Symfony\Bundle\DependencyInjection\ApiPlatformExtension;
+use ApiPlatform\Core\DataPersister\DataPersisterInterface;
 use ApiPlatform\Core\DataProvider\CollectionDataProviderInterface;
 use ApiPlatform\Core\DataProvider\ItemDataProviderInterface;
 use ApiPlatform\Core\Exception\InvalidArgumentException;
@@ -157,7 +158,7 @@ class ApiPlatformExtensionTest extends TestCase
 
     public function testLoadDefaultConfig()
     {
-        $containerBuilderProphecy = $this->getDefaultContainerBuilderProphecy();
+        $containerBuilderProphecy = $this->getBaseContainerBuilderProphecy();
         $containerBuilder = $containerBuilderProphecy->reveal();
 
         $this->extension->load(self::DEFAULT_CONFIG, $containerBuilder);
@@ -167,7 +168,7 @@ class ApiPlatformExtensionTest extends TestCase
     {
         $nameConverterId = 'test.name_converter';
 
-        $containerBuilderProphecy = $this->getDefaultContainerBuilderProphecy();
+        $containerBuilderProphecy = $this->getBaseContainerBuilderProphecy();
         $containerBuilderProphecy->setAlias('api_platform.name_converter', $nameConverterId)->shouldBeCalled();
         $containerBuilder = $containerBuilderProphecy->reveal();
 
@@ -176,7 +177,7 @@ class ApiPlatformExtensionTest extends TestCase
 
     public function testEnableFosUser()
     {
-        $containerBuilderProphecy = $this->getDefaultContainerBuilderProphecy();
+        $containerBuilderProphecy = $this->getBaseContainerBuilderProphecy();
         $containerBuilderProphecy->getParameter('kernel.bundles')->willReturn([
             'DoctrineBundle' => DoctrineBundle::class,
             'FOSUserBundle' => FOSUserBundle::class,
@@ -212,7 +213,7 @@ class ApiPlatformExtensionTest extends TestCase
      */
     public function testEnableNelmioApiDoc()
     {
-        $containerBuilderProphecy = $this->getDefaultContainerBuilderProphecy();
+        $containerBuilderProphecy = $this->getBaseContainerBuilderProphecy();
         $containerBuilderProphecy->getParameter('kernel.bundles')->willReturn([
             'DoctrineBundle' => DoctrineBundle::class,
             'NelmioApiDocBundle' => NelmioApiDocBundle::class,
@@ -226,7 +227,7 @@ class ApiPlatformExtensionTest extends TestCase
 
     public function testDisableGraphql()
     {
-        $containerBuilderProphecy = $this->getDefaultContainerBuilderProphecy();
+        $containerBuilderProphecy = $this->getBaseContainerBuilderProphecy();
         $containerBuilderProphecy->setDefinition('api_platform.action.graphql_entrypoint')->shouldNotBeCalled();
         $containerBuilderProphecy->setDefinition('api_platform.graphql.collection_resolver_factory')->shouldNotBeCalled();
         $containerBuilderProphecy->setDefinition('api_platform.graphql.executor')->shouldNotBeCalled();
@@ -241,7 +242,7 @@ class ApiPlatformExtensionTest extends TestCase
 
     public function testEnableSecurity()
     {
-        $containerBuilderProphecy = $this->getDefaultContainerBuilderProphecy();
+        $containerBuilderProphecy = $this->getBaseContainerBuilderProphecy();
         $containerBuilderProphecy->getParameter('kernel.bundles')->willReturn([
             'DoctrineBundle' => DoctrineBundle::class,
             'SecurityBundle' => SecurityBundle::class,
@@ -279,7 +280,7 @@ class ApiPlatformExtensionTest extends TestCase
 
     public function testDisableEagerLoadingExtension()
     {
-        $containerBuilderProphecy = $this->getDefaultContainerBuilderProphecy();
+        $containerBuilderProphecy = $this->getBaseContainerBuilderProphecy();
         $containerBuilderProphecy->setParameter('api_platform.eager_loading.enabled', false)->shouldBeCalled();
         $containerBuilderProphecy->removeDefinition('api_platform.doctrine.orm.query_extension.eager_loading')->shouldBeCalled();
         $containerBuilderProphecy->removeDefinition('api_platform.doctrine.orm.query_extension.filter_eager_loading')->shouldBeCalled();
@@ -302,6 +303,10 @@ class ApiPlatformExtensionTest extends TestCase
     {
         $containerBuilderProphecy = $this->prophesize(ContainerBuilder::class);
         $childDefinitionProphecy = $this->prophesize(ChildDefinition::class);
+
+        $containerBuilderProphecy->registerForAutoconfiguration(DataPersisterInterface::class)
+            ->willReturn($childDefinitionProphecy)->shouldBeCalledTimes(1);
+        $childDefinitionProphecy->addTag('api_platform.data_persister')->shouldBeCalledTimes(1);
 
         $containerBuilderProphecy->registerForAutoconfiguration(ItemDataProviderInterface::class)
             ->willReturn($childDefinitionProphecy)->shouldBeCalledTimes(1);
@@ -382,6 +387,7 @@ class ApiPlatformExtensionTest extends TestCase
         $containerBuilderProphecy->hasExtension('http://symfony.com/schema/dic/services')->shouldBeCalled();
 
         $definitions = [
+            'api_platform.data_persister',
             'api_platform.action.documentation',
             'api_platform.action.placeholder',
             'api_platform.action.entrypoint',
@@ -406,6 +412,7 @@ class ApiPlatformExtensionTest extends TestCase
             'api_platform.listener.view.respond',
             'api_platform.listener.view.serialize',
             'api_platform.listener.view.validate',
+            'api_platform.listener.view.write',
             'api_platform.metadata.extractor.xml',
             'api_platform.metadata.property.metadata_factory.cached',
             'api_platform.metadata.property.metadata_factory.inherited',
@@ -519,10 +526,11 @@ class ApiPlatformExtensionTest extends TestCase
 
         $definitions = [
             'api_platform.action.graphql_entrypoint',
-            'api_platform.doctrine.listener.view.write',
+            'api_platform.doctrine.listener.http_cache.purge',
             'api_platform.doctrine.metadata_factory',
             'api_platform.doctrine.orm.boolean_filter',
             'api_platform.doctrine.orm.collection_data_provider',
+            'api_platform.doctrine.orm.data_persister',
             'api_platform.doctrine.orm.date_filter',
             'api_platform.doctrine.orm.default.collection_data_provider',
             'api_platform.doctrine.orm.default.item_data_provider',
@@ -540,8 +548,6 @@ class ApiPlatformExtensionTest extends TestCase
             'api_platform.doctrine.orm.range_filter',
             'api_platform.doctrine.orm.search_filter',
             'api_platform.doctrine.orm.subresource_data_provider',
-            'api_platform.doctrine.listener.http_cache.purge',
-            'api_platform.doctrine.listener.view.write',
             'api_platform.graphql.collection_resolver_factory',
             'api_platform.graphql.executor',
             'api_platform.graphql.item_resolver_factory',
@@ -602,18 +608,6 @@ class ApiPlatformExtensionTest extends TestCase
         }
 
         $containerBuilderProphecy->setAlias('api_platform.http_cache.purger', 'api_platform.http_cache.purger.varnish')->shouldBeCalled();
-
-        return $containerBuilderProphecy;
-    }
-
-    private function getDefaultContainerBuilderProphecy()
-    {
-        $containerBuilderProphecy = $this->getBaseContainerBuilderProphecy();
-
-        $containerBuilderProphecy
-            ->setDefinition('api_platform.http_cache.purger.varnish_client.test', Argument::type(Definition::class))
-            ->shouldBeCalled()
-        ;
 
         return $containerBuilderProphecy;
     }

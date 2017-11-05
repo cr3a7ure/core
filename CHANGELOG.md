@@ -13,6 +13,16 @@
 * Automatically enable FOSUser support if the bundle is installed
 * Add an `AbstractCollectionNormalizer` to help supporting custom formats
 * Deprecate NelmioApiDocBundle 2 support (upgrade to v3, it has native API Platform support)
+* Deprecate the `ApiPlatform\Core\Bridge\Doctrine\EventListener\WriteListener` class in favor of the new `ApiPlatform\Core\EventListener\WriteListener` class.
+* Delete the `api_platform.doctrine.listener.view.write` event listener service.
+* Add a data persistence layer with a new `ApiPlatform\Core\DataPersister\DataPersisterInterface` interface.
+
+## 2.1.3
+
+* Don't use dynamic values in Varnish-related service keys (improves Symfony 3.3 compatibility)
+* Hydra: Fix the value of `owl:allValuesFrom` in the API documentation
+* Swagger: Include the context even when the type is `null`
+* Minor code and PHPDoc cleanups
 
 ## 2.1.2
 

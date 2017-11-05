@@ -15,6 +15,7 @@ namespace ApiPlatform\Core\Bridge\Symfony\Bundle\DependencyInjection;
 
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryCollectionExtensionInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryItemExtensionInterface;
+use ApiPlatform\Core\DataPersister\DataPersisterInterface;
 use ApiPlatform\Core\DataProvider\CollectionDataProviderInterface;
 use ApiPlatform\Core\DataProvider\ItemDataProviderInterface;
 use ApiPlatform\Core\Exception\RuntimeException;
@@ -28,7 +29,6 @@ use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
-use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -86,9 +86,12 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
 
         $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('api.xml');
+        $loader->load('data_persister.xml');
         $loader->load('data_provider.xml');
         $loader->load('filter.xml');
 
+        $container->registerForAutoconfiguration(DataPersisterInterface::class)
+            ->addTag('api_platform.data_persister');
         $container->registerForAutoconfiguration(ItemDataProviderInterface::class)
             ->addTag('api_platform.item_data_provider');
         $container->registerForAutoconfiguration(CollectionDataProviderInterface::class)
@@ -466,17 +469,15 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
 
         $loader->load('http_cache_tags.xml');
 
-        $references = [];
-        foreach ($config['http_cache']['invalidation']['varnish_urls'] as $url) {
-            $id = sprintf('api_platform.http_cache.purger.varnish_client.%s', $url);
-            $references[] = new Reference($id);
-
+        $definitions = [];
+        foreach ($config['http_cache']['invalidation']['varnish_urls'] as $key => $url) {
             $definition = new ChildDefinition('api_platform.http_cache.purger.varnish_client');
             $definition->addArgument(['base_uri' => $url]);
-            $container->setDefinition($id, $definition);
+
+            $definitions[] = $definition;
         }
 
-        $container->getDefinition('api_platform.http_cache.purger.varnish')->addArgument($references);
+        $container->getDefinition('api_platform.http_cache.purger.varnish')->addArgument($definitions);
         $container->setAlias('api_platform.http_cache.purger', 'api_platform.http_cache.purger.varnish');
     }
 

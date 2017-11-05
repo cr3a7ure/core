@@ -114,6 +114,7 @@ final class DocumentationNormalizer implements NormalizerInterface
                 'domain' => '#Entrypoint',
                 'rdfs:label' => "The collection of $shortName resources",
                 'rdfs:range' => [
+<<<<<<< HEAD
                     '@type' => 'hydra:Collection',
                     'hydra:member' => [
                         '@type' => "#$shortName"
@@ -122,12 +123,14 @@ final class DocumentationNormalizer implements NormalizerInterface
                     'owl:equivalentClass' => [
                         'owl:onProperty' => 'hydra:member',
                         'owl:allValuesFrom' => "#$shortName",
+=======
                     ['@id' => 'hydra:Collection'],
                     [
                         'owl:equivalentClass' => [
                             'owl:onProperty' => ['@id' => 'hydra:member'],
                             'owl:allValuesFrom' => ['@id' => $prefixedShortName],
                         ],
+>>>>>>> d18ec0da1ac52f92ca755ca275cd0853d0972878
                     ],
                 ],
                 'hydra:supportedOperation' => $hydraCollectionOperations,
