@@ -116,7 +116,7 @@ final class DocumentationNormalizer implements NormalizerInterface
                 'rdfs:range' => [
                     '@type' => 'hydra:Collection',
                     'hydra:member' => [
-                        '@type' => "#$shortName"
+                        '@type' => $prefixedShortName
                     ],
                     'hydra:search' => $temp,
                     'owl:equivalentClass' => [
@@ -310,14 +310,14 @@ final class DocumentationNormalizer implements NormalizerInterface
                 'hydra:title' => "Retrieves the collection of $shortName resources.",
                 'returns' => 'hydra:Collection',
                 'schema:result' => 'hydra:Collection',
-                'schema:object' => "#$shortName",
+                'schema:object' => $prefixedShortName,
                 'schema:target' => $this->iriConverter->getIriFromResourceClass($resourceClass)
             ];
         } elseif ('GET' === $method && OperationType::SUBRESOURCE === $operationType) {
             $hydraOperation += [
                 '@type' => ['hydra:Operation', 'schema:FindAction'],
                 'hydra:title' => $subresourceMetadata->isCollection() ? "Retrieves the collection of $shortName resources." : "Retrieves a $shortName resource.",
-                'returns' => "#$shortName",
+                'returns' => $prefixedShortName,
                 'schema:target' => $this->urlGenerator->generate('api_doc', ['_format' => self::FORMAT], UrlGeneratorInterface::ABS_URL).'#',
             ];
         } elseif ('GET' === $method) {
@@ -326,7 +326,7 @@ final class DocumentationNormalizer implements NormalizerInterface
                 'hydra:title' => "Retrieves $shortName resource.",
                 'returns' => $prefixedShortName,
                 'schema:result' => $prefixedShortName,
-                'schema:object' => "#$shortName",
+                'schema:object' => $prefixedShortName,
                 'schema:target' => $classMapping
             ];
         } elseif ('POST' === $method) {
@@ -336,15 +336,15 @@ final class DocumentationNormalizer implements NormalizerInterface
                 'returns' => $prefixedShortName,
                 'schema:result' => $prefixedShortName,
                 'expects' => $prefixedShortName,
-                'schema:object' => "#$shortName",
+                'schema:object' => $prefixedShortName,
                 'schema:target' => $this->iriConverter->getIriFromResourceClass($resourceClass),
             ];
         } elseif ('PUT' === $method) {
             $hydraOperation += [
                 '@type' => ['hydra:Operation', 'schema:ReplaceAction'],
                 'hydra:title' => "Replaces the $shortName resource.",
-                'returns' => "#$shortName",
-                'expects' => "#$shortName",
+                'returns' => $prefixedShortName,
+                'expects' => $prefixedShortName,
                 'schema:object' => $prefixedShortName,
                 'schema:result' => $prefixedShortName,
                 'schema:target' => $classMapping,
