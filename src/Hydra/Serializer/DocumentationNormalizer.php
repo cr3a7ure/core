@@ -526,8 +526,8 @@ final class DocumentationNormalizer implements NormalizerInterface
             $propType = $propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link';
         }
         $propertyData = [
-            '@id' => $propertyMetadata->getIri() ?? "#$shortName/$propertyName",
-            '@type' => $propType,
+            '@id' => "#$shortName/$propertyName",
+            '@type' => $propType ?? $propertyMetadata->getIri(),
             'rdfs:label' => $propertyName,
             'domain' => $prefixedShortName,
         ];
