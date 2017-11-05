@@ -121,7 +121,7 @@ final class DocumentationNormalizer implements NormalizerInterface
                     'hydra:search' => $temp,
                     'owl:equivalentClass' => [
                         'owl:onProperty' => ['@type' => 'hydra:member'],
-                        'owl:allValuesFrom' => ['@id' => 'vocab:'$shortName],
+                        'owl:allValuesFrom' => ['@id' => "vocab:$shortName"],
                     ],
                 ],
                 'hydra:supportedOperation' => $hydraCollectionOperations,
