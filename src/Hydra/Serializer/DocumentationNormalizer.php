@@ -145,7 +145,7 @@ final class DocumentationNormalizer implements NormalizerInterface
     private function getClass(string $resourceClass, ResourceMetadata $resourceMetadata, string $shortName, string $prefixedShortName): array
     {
         $class = [
-            '@id' => '#$shortName',
+            '@id' => "#$shortName",
             '@type' => $resourceMetadata->getType() ? ['hydra:Class',$resourceMetadata->getType()] : 'hydra:Class',
             'rdfs:label' => $shortName,
             'hydra:title' => $shortName,
