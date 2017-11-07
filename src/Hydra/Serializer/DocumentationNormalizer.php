@@ -592,7 +592,7 @@ final class DocumentationNormalizer implements NormalizerInterface
     private function getContext(): array
     {
         return [
-            '@vocab' => $this->urlGenerator->generate('api_doc', ['_format' => self::FORMAT], UrlGeneratorInterface::ABS_URL).'#',
+            '@vocab' => $this->urlGenerator->generate('api_doc', ['_format' => self::FORMAT], UrlGeneratorInterface::ABS_URL),
             '@base' => rtrim($this->urlGenerator->generate('api_entrypoint', [], UrlGeneratorInterface::ABS_URL),'/'),
             'hydra' => ContextBuilderInterface::HYDRA_NS,
             'rdf' => ContextBuilderInterface::RDF_NS,
