@@ -605,6 +605,11 @@ final class DocumentationNormalizer implements NormalizerInterface
             'subClassOf' => ['@id' => 'rdfs:subClassOf', '@type' => '@id'],
             'expects' => ['@id' => 'hydra:expects', '@type' => '@id'],
             'returns' => ['@id' => 'hydra:returns', '@type' => '@id'],
+            'property' => ['@id' => 'hydra:property'],
+            'variable' => ['@id' => 'hydra:variable'],
+            'required' => ['@id' => 'hydra:required'],
+            'target' => ['@id' => 'schema:target', '@type' => '@id'],
+            'query' => ['@id' => 'schema:query'],
             'schema:object' => ['@type' => '@id'],
             'schema:result' => ['@type' => '@id'],
             'schema:target' => ['@type' => '@id']
