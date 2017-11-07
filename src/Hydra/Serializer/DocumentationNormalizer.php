@@ -306,7 +306,7 @@ final class DocumentationNormalizer implements NormalizerInterface
 
         if ('GET' === $method && OperationType::COLLECTION === $operationType) {
             $hydraOperation += [
-                '@type' => ['hydra:Operation', 'schema:FindAction'],
+                '@type' => ['hydra:Operation', 'schema:SearchAction'],
                 'hydra:title' => "Retrieves the collection of $shortName resources.",
                 'returns' => 'hydra:Collection',
                 'schema:result' => 'hydra:Collection',
