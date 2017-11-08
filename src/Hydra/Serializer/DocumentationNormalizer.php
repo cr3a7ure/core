@@ -523,7 +523,10 @@ final class DocumentationNormalizer implements NormalizerInterface
         if (!is_null($propertyMetadata->getvocabType())) {
             $propType = [$propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',$propertyMetadata->getvocabType()];
         } else {
-            $propType = [$propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link', $propertyMetadata->getIri() ];
+            $propType = [
+                $propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',
+                $propertyMetadata->getIri() ?? ''
+            ];
         }
         $propertyData = [
             '@id' => "vocab:#$shortName/$propertyName",
