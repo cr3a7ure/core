@@ -73,7 +73,7 @@ final class DocumentationNormalizer implements NormalizerInterface
         foreach ($object->getResourceNameCollection() as $resourceClass) {
             $resourceMetadata = $this->resourceMetadataFactory->create($resourceClass);
             $shortName = $resourceMetadata->getShortName();
-            $prefixedShortName = $resourceMetadata->getIri() ?? "#$shortName";
+            $prefixedShortName = $resourceMetadata->getIri() ?? "vocab:#$shortName";
 
             $this->populateEntrypointProperties($resourceClass, $resourceMetadata, $shortName, $prefixedShortName, $entrypointProperties);
             $classes[] = $this->getClass($resourceClass, $resourceMetadata, $shortName, $prefixedShortName);
@@ -116,12 +116,12 @@ final class DocumentationNormalizer implements NormalizerInterface
                 'rdfs:range' => [
                     '@type' => 'hydra:Collection',
                     'hydra:member' => [
-                        '@type' => $prefixedShortName
+                        '@type' => "vocab:#$shortName"
                     ],
                     'hydra:search' => $temp,
                     'owl:equivalentClass' => [
                         'owl:onProperty' => ['@id' => 'hydra:member'],
-                        'owl:allValuesFrom' => ['@id' => "#$shortName"],
+                        'owl:allValuesFrom' => ['@id' => "vocab:#$shortName"],
                     ],
                 ],
                 'hydra:supportedOperation' => $hydraCollectionOperations,
@@ -310,43 +310,43 @@ final class DocumentationNormalizer implements NormalizerInterface
                 'hydra:title' => "Retrieves the collection of $shortName resources.",
                 'returns' => 'hydra:Collection',
                 'schema:result' => 'hydra:Collection',
-                'schema:object' => $prefixedShortName,
+                'schema:object' => "vocab:#$shortName",
                 'schema:target' => $this->iriConverter->getIriFromResourceClass($resourceClass)
             ];
         } elseif ('GET' === $method && OperationType::SUBRESOURCE === $operationType) {
             $hydraOperation += [
                 '@type' => ['hydra:Operation', 'schema:FindAction'],
                 'hydra:title' => $subresourceMetadata->isCollection() ? "Retrieves the collection of $shortName resources." : "Retrieves a $shortName resource.",
-                'returns' => $prefixedShortName,
+                'returns' => "vocab:#$shortName",
                 'schema:target' => $this->urlGenerator->generate('api_doc', ['_format' => self::FORMAT], UrlGeneratorInterface::ABS_URL).'#',
             ];
         } elseif ('GET' === $method) {
             $hydraOperation += [
                 '@type' => ['hydra:Operation', 'schema:FindAction'],
                 'hydra:title' => "Retrieves $shortName resource.",
-                'returns' => $prefixedShortName,
-                'schema:result' => $prefixedShortName,
-                'schema:object' => $prefixedShortName,
+                'returns' => "vocab:#$shortName",
+                'schema:result' => "vocab:#$shortName",
+                'schema:object' => "vocab:#$shortName",
                 'schema:target' => $classMapping
             ];
         } elseif ('POST' === $method) {
             $hydraOperation += [
                 '@type' => ['hydra:Operation', 'schema:CreateAction'],
                 'hydra:title' => "Creates a $shortName resource.",
-                'returns' => $prefixedShortName,
-                'schema:result' => $prefixedShortName,
-                'expects' => $prefixedShortName,
-                'schema:object' => $prefixedShortName,
+                'returns' => "vocab:#$shortName",
+                'schema:result' => "vocab:#$shortName",
+                'expects' => "vocab:#$shortName",
+                'schema:object' => "vocab:#$shortName",
                 'schema:target' => $this->iriConverter->getIriFromResourceClass($resourceClass),
             ];
         } elseif ('PUT' === $method) {
             $hydraOperation += [
                 '@type' => ['hydra:Operation', 'schema:ReplaceAction'],
                 'hydra:title' => "Replaces the $shortName resource.",
-                'returns' => $prefixedShortName,
-                'expects' => $prefixedShortName,
-                'schema:object' => $prefixedShortName,
-                'schema:result' => $prefixedShortName,
+                'returns' => "vocab:#$shortName",
+                'expects' => "vocab:#$shortName",
+                'schema:object' => "vocab:#$shortName",
+                'schema:result' => "vocab:#$shortName",
                 'schema:target' => $classMapping,
             ];
         } elseif ('DELETE' === $method) {
@@ -354,7 +354,7 @@ final class DocumentationNormalizer implements NormalizerInterface
                 '@type' => ['hydra:Operation', 'schema:DeleteAction'],
                 'hydra:title' => "Deletes the $shortName resource.",
                 'returns' => 'owl:Nothing',
-                'schema:object' => $prefixedShortName,
+                'schema:object' => "vocab:#$shortName",
                 'schema:result' => 'owl:Nothing',
                 'schema:target' => $classMapping
             ];
@@ -526,7 +526,7 @@ final class DocumentationNormalizer implements NormalizerInterface
             $propType = $propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link';
         }
         $propertyData = [
-            '@id' => "#$shortName/$propertyName",
+            '@id' => "vocab:#$shortName/$propertyName",
             '@type' => $propType ?? $propertyMetadata->getIri(),
             'rdfs:label' => $propertyName,
             'domain' => $prefixedShortName,
@@ -592,7 +592,7 @@ final class DocumentationNormalizer implements NormalizerInterface
     private function getContext(): array
     {
         return [
-            '@vocab' => $this->urlGenerator->generate('api_doc', ['_format' => self::FORMAT], UrlGeneratorInterface::ABS_URL).'#',
+            // '@vocab' => $this->urlGenerator->generate('api_doc', ['_format' => self::FORMAT], UrlGeneratorInterface::ABS_URL).'#',
             'vocab' => $this->urlGenerator->generate('api_doc', ['_format' => self::FORMAT], UrlGeneratorInterface::ABS_URL),
             '@base' => rtrim($this->urlGenerator->generate('api_entrypoint', [], UrlGeneratorInterface::ABS_URL),'/'),
             'hydra' => ContextBuilderInterface::HYDRA_NS,
