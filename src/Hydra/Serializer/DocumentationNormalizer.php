@@ -527,7 +527,7 @@ final class DocumentationNormalizer implements NormalizerInterface
         }
         $propertyData = [
             '@id' => "vocab:#$shortName/$propertyName",
-            '@type' => $propType ?? $propertyMetadata->getIri(),
+            '@type' => ['hydra:property',$propType ?? $propertyMetadata->getIri()],
             'rdfs:label' => $propertyName,
             'domain' => $prefixedShortName,
         ];
