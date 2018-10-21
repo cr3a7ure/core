@@ -55,7 +55,7 @@ class ExtractorPropertyMetadataFactoryTest extends FileConfigurationMetadataFact
         $decorated = $this->prophesize(PropertyMetadataFactoryInterface::class);
         $decorated
             ->create(FileConfigDummy::class, 'foo', [])
-            ->willReturn(new PropertyMetadata(null, null, null, null, true, null, null, false, null, null, ['Foo'], new SubresourceMetadata('Foo', false)))
+            ->willReturn(new PropertyMetadata(null, null, null, null, true, null, null, false, null, null, null, ['Foo'], new SubresourceMetadata('Foo', false)))
             ->shouldBeCalled();
 
         $propertyMetadataFactory = new ExtractorPropertyMetadataFactory(new XmlExtractor([$configPath]), $decorated->reveal());
@@ -119,7 +119,7 @@ class ExtractorPropertyMetadataFactoryTest extends FileConfigurationMetadataFact
         $decorated = $this->prophesize(PropertyMetadataFactoryInterface::class);
         $decorated
             ->create(FileConfigDummy::class, 'foo', [])
-            ->willReturn(new PropertyMetadata(null, null, null, null, true, null, null, false, null, null, ['Foo'], new SubresourceMetadata('Foo', false)))
+            ->willReturn(new PropertyMetadata(null, null, null, null, true, null, null, false, null, null, null, ['Foo'], new SubresourceMetadata('Foo', false)))
             ->shouldBeCalled();
 
         $propertyMetadataFactory = new ExtractorPropertyMetadataFactory(new YamlExtractor([$configPath]), $decorated->reveal());
@@ -150,7 +150,7 @@ class ExtractorPropertyMetadataFactoryTest extends FileConfigurationMetadataFact
         $decorated = $this->prophesize(PropertyMetadataFactoryInterface::class);
         $decorated
             ->create(FileConfigDummy::class, 'foo', [])
-            ->willReturn(new PropertyMetadata($collectionType, null, null, null, true, null, null, false, null, null, ['Foo'], null))
+            ->willReturn(new PropertyMetadata($collectionType, null, null, null, true, null, null, false, null, null, null, ['Foo'], null))
             ->shouldBeCalled();
 
         $propertyMetadataFactory = new ExtractorPropertyMetadataFactory(new YamlExtractor([$configPath]), $decorated->reveal());
@@ -175,7 +175,7 @@ class ExtractorPropertyMetadataFactoryTest extends FileConfigurationMetadataFact
         $decorated = $this->prophesize(PropertyMetadataFactoryInterface::class);
         $decorated
             ->create(FileConfigDummy::class, 'foo', [])
-            ->willReturn(new PropertyMetadata($type, null, null, null, true, null, null, false, null, null, ['Foo'], null))
+            ->willReturn(new PropertyMetadata($type, null, null, null, true, null, null, false, null, null, null, ['Foo'], null))
             ->shouldBeCalled();
 
         $propertyMetadataFactory = new ExtractorPropertyMetadataFactory(new YamlExtractor([$configPath]), $decorated->reveal());

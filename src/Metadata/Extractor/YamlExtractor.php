@@ -67,6 +67,7 @@ final class YamlExtractor extends AbstractExtractor
                 'shortName' => $this->phpize($resourceYaml, 'shortName', 'string'),
                 'description' => $this->phpize($resourceYaml, 'description', 'string'),
                 'iri' => $this->phpize($resourceYaml, 'iri', 'string'),
+                'type' => $this->phpize($resourceYaml, 'type', 'string'),
                 'itemOperations' => $resourceYaml['itemOperations'] ?? null,
                 'collectionOperations' => $resourceYaml['collectionOperations'] ?? null,
                 'subresourceOperations' => $resourceYaml['subresourceOperations'] ?? null,
@@ -110,6 +111,7 @@ final class YamlExtractor extends AbstractExtractor
                 'required' => $this->phpize($propertyValues, 'required', 'bool'),
                 'identifier' => $this->phpize($propertyValues, 'identifier', 'bool'),
                 'iri' => $this->phpize($propertyValues, 'iri', 'string'),
+                'vocabType' => $this->phpize($propertyValues, 'vocabType', 'string'),
                 'attributes' => $propertyValues['attributes'] ?? [],
                 'subresource' => $propertyValues['subresource'] ?? null,
             ];

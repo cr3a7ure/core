@@ -609,7 +609,7 @@ class AbstractItemNormalizerTest extends TestCase
             new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING), '', true)
         )->shouldBeCalled();
         $propertyMetadataFactoryProphecy->create(DummyTableInheritance::class, 'nickname', [])->willReturn(
-            new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING, true), '', true, true, false, false, false, false, null, DummyTableInheritanceChild::class)
+            new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING, true), '', true, true, false, false, false, false, null, null, DummyTableInheritanceChild::class)
         )->shouldBeCalled();
 
         $iriConverterProphecy = $this->prophesize(IriConverterInterface::class);
