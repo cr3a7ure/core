@@ -31,12 +31,8 @@ final class IriHelper
     /**
      * Parses and standardizes the request IRI.
      *
-     * @param string $iri
-     * @param string $pageParameterName
      *
      * @throws InvalidArgumentException
-     *
-     * @return array
      */
     public static function parseIri(string $iri, string $pageParameterName): array
     {
@@ -59,13 +55,7 @@ final class IriHelper
     /**
      * Gets a collection IRI for the given parameters.
      *
-     * @param array  $parts
-     * @param array  $parameters
-     * @param string $pageParameterName
-     * @param float  $page
-     * @param bool   $absoluteUrl
-     *
-     * @return string
+     * @param float $page
      */
     public static function createIri(array $parts, array $parameters, string $pageParameterName, float $page = null, bool $absoluteUrl = false): string
     {
@@ -74,7 +64,7 @@ final class IriHelper
         }
 
         $query = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
-        $parts['query'] = preg_replace('/%5B[0-9]+%5D/', '%5B%5D', $query);
+        $parts['query'] = preg_replace('/%5B\d+%5D/', '%5B%5D', $query);
 
         $url = '';
 

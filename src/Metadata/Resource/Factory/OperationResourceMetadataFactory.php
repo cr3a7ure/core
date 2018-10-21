@@ -82,6 +82,13 @@ final class OperationResourceMetadataFactory implements ResourceMetadataFactoryI
             $resourceMetadata = $this->normalize(false, $resourceMetadata, $itemOperations);
         }
 
+        $graphql = $resourceMetadata->getGraphql();
+        if (null === $graphql) {
+            $resourceMetadata = $resourceMetadata->withGraphql(['query' => [], 'delete' => [], 'update' => [], 'create' => []]);
+        } else {
+            $resourceMetadata = $this->normalizeGraphQl($resourceMetadata, $graphql);
+        }
+
         return $resourceMetadata;
     }
 
@@ -100,7 +107,7 @@ final class OperationResourceMetadataFactory implements ResourceMetadataFactoryI
         $newOperations = [];
         foreach ($operations as $operationName => $operation) {
             // e.g.: @ApiResource(itemOperations={"get"})
-            if (is_int($operationName) && is_string($operation)) {
+            if (\is_int($operationName) && \is_string($operation)) {
                 $operationName = $operation;
                 $operation = [];
             }
@@ -112,13 +119,25 @@ final class OperationResourceMetadataFactory implements ResourceMetadataFactoryI
                 $supported = isset(self::SUPPORTED_ITEM_OPERATION_METHODS[$upperOperationName]) || (isset($this->formats['jsonapi']) && 'PATCH' === $upperOperationName);
             }
 
-            if ($supported && !isset($operation['method']) && !isset($operation['route_name'])) {
-                $operation['method'] = $upperOperationName;
+            if (!isset($operation['method']) && !isset($operation['route_name'])) {
+                $supported ? $operation['method'] = $upperOperationName : $operation['route_name'] = $operationName;
             }
 
             $newOperations[$operationName] = $operation;
         }
 
         return $collection ? $resourceMetadata->withCollectionOperations($newOperations) : $resourceMetadata->withItemOperations($newOperations);
+    }
+
+    private function normalizeGraphQl(ResourceMetadata $resourceMetadata, array $operations)
+    {
+        foreach ($operations as $operationName => $operation) {
+            if (\is_int($operationName) && \is_string($operation)) {
+                unset($operations[$operationName]);
+                $operations[$operation] = [];
+            }
+        }
+
+        return $resourceMetadata->withGraphql($operations);
     }
 }

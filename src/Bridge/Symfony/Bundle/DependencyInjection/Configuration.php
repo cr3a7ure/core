@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Symfony\Bundle\DependencyInjection;
 
+use ApiPlatform\Core\Exception\FilterValidationException;
 use ApiPlatform\Core\Exception\InvalidArgumentException;
 use FOS\UserBundle\FOSUserBundle;
 use GraphQL\GraphQL;
@@ -42,17 +43,26 @@ final class Configuration implements ConfigurationInterface
 
         $rootNode
             ->children()
-                ->scalarNode('title')->defaultValue('')->info('The title of the API.')->end()
-                ->scalarNode('description')->defaultValue('')->info('The description of the API.')->end()
-                ->scalarNode('version')->defaultValue('0.0.0')->info('The version of the API.')->end()
+                ->scalarNode('title')
+                    ->info('The title of the API.')
+                    ->cannotBeEmpty()
+                    ->defaultValue('')
+                ->end()
+                ->scalarNode('description')
+                    ->info('The description of the API.')
+                    ->cannotBeEmpty()
+                    ->defaultValue('')
+                ->end()
+                ->scalarNode('version')
+                    ->info('The version of the API.')
+                    ->cannotBeEmpty()
+                    ->defaultValue('0.0.0')
+                ->end()
+                ->booleanNode('show_webby')->defaultTrue()->info('If true, show Webby on the documentation page')->end()
                 ->scalarNode('default_operation_path_resolver')
-                    ->beforeNormalization()->always(function ($v) {
-                        @trigger_error('The use of the `default_operation_path_resolver` has been deprecated in 2.1 and will be removed in 3.0. Use `path_segment_name_generator` instead.', E_USER_DEPRECATED);
-
-                        return $v;
-                    })->end()
                     ->defaultValue('api_platform.operation_path_resolver.underscore')
-                    ->info('[Deprecated] Specify the default operation path resolver to use for generating resources operations path.')
+                    ->setDeprecated('The use of the `default_operation_path_resolver` has been deprecated in 2.1 and will be removed in 3.0. Use `path_segment_name_generator` instead.')
+                    ->info('Specify the default operation path resolver to use for generating resources operations path.')
                 ->end()
                 ->scalarNode('name_converter')->defaultNull()->info('Specify a name converter to use.')->end()
                 ->scalarNode('path_segment_name_generator')->defaultValue('api_platform.path_segment_name_generator.underscore')->info('Specify a path name generator to use.')->end()
@@ -75,18 +85,15 @@ final class Configuration implements ConfigurationInterface
                 ->end()
                 ->booleanNode('enable_fos_user')->defaultValue(class_exists(FOSUserBundle::class))->info('Enable the FOSUserBundle integration.')->end()
                 ->booleanNode('enable_nelmio_api_doc')
-                    ->beforeNormalization()->always(function ($v) {
-                        if ($v) {
-                            @trigger_error('Enabling the NelmioApiDocBundle integration has been deprecated in 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.', E_USER_DEPRECATED);
-                        }
-
-                        return $v;
-                    })->end()
                     ->defaultValue(false)
-                    ->info('[Deprecated] Enable the NelmioApiDocBundle integration.')
+                    ->setDeprecated('Enabling the NelmioApiDocBundle integration has been deprecated in 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.')
+                    ->info('Enable the NelmioApiDocBundle integration.')
                 ->end()
                 ->booleanNode('enable_swagger')->defaultValue(true)->info('Enable the Swagger documentation and export.')->end()
                 ->booleanNode('enable_swagger_ui')->defaultValue(class_exists(TwigBundle::class))->info('Enable Swagger ui.')->end()
+                ->booleanNode('enable_entrypoint')->defaultTrue()->info('Enable the entrypoint')->end()
+                ->booleanNode('enable_docs')->defaultTrue()->info('Enable the docs')->end()
+                ->booleanNode('enable_profiler')->defaultTrue()->info('Enable the data collector and the WebProfilerBundle integration.')->end()
 
                 ->arrayNode('oauth')
                     ->canBeEnabled()
@@ -173,6 +180,10 @@ final class Configuration implements ConfigurationInterface
                     ->end()
                 ->end()
 
+                ->arrayNode('resource_class_directories')
+                    ->prototype('scalar')->end()
+                ->end()
+
                 ->arrayNode('http_cache')
                     ->addDefaultsIfNotSet()
                     ->children()
@@ -193,6 +204,14 @@ final class Configuration implements ConfigurationInterface
                                     ->defaultValue([])
                                     ->prototype('scalar')->end()
                                     ->info('URLs of the Varnish servers to purge using cache tags when a resource is updated.')
+                                ->end()
+                                ->variableNode('request_options')
+                                    ->defaultValue([])
+                                    ->validate()
+                                        ->ifTrue(function ($v) { return false === \is_array($v); })
+                                        ->thenInvalid('The request_options parameter must be an array.')
+                                    ->end()
+                                    ->info('To pass options to the client charged with the request.')
                                 ->end()
                             ->end()
                         ->end()
@@ -219,7 +238,6 @@ final class Configuration implements ConfigurationInterface
     /**
      * Adds an exception to status section.
      *
-     * @param ArrayNodeDefinition $rootNode
      *
      * @throws InvalidConfigurationException
      */
@@ -231,6 +249,7 @@ final class Configuration implements ConfigurationInterface
                     ->defaultValue([
                         ExceptionInterface::class => Response::HTTP_BAD_REQUEST,
                         InvalidArgumentException::class => Response::HTTP_BAD_REQUEST,
+                        FilterValidationException::class => Response::HTTP_BAD_REQUEST,
                     ])
                     ->info('The list of exceptions mapped to their HTTP status code.')
                     ->normalizeKeys(false)
@@ -239,14 +258,14 @@ final class Configuration implements ConfigurationInterface
                         ->ifArray()
                         ->then(function (array $exceptionToStatus) {
                             foreach ($exceptionToStatus as &$httpStatusCode) {
-                                if (is_int($httpStatusCode)) {
+                                if (\is_int($httpStatusCode)) {
                                     continue;
                                 }
 
-                                if (defined($httpStatusCodeConstant = sprintf('%s::%s', Response::class, $httpStatusCode))) {
+                                if (\defined($httpStatusCodeConstant = sprintf('%s::%s', Response::class, $httpStatusCode))) {
                                     @trigger_error(sprintf('Using a string "%s" as a constant of the "%s" class is deprecated since API Platform 2.1 and will not be possible anymore in API Platform 3. Use the Symfony\'s custom YAML extension for PHP constants instead (i.e. "!php/const:%s").', $httpStatusCode, Response::class, $httpStatusCodeConstant), E_USER_DEPRECATED);
 
-                                    $httpStatusCode = constant($httpStatusCodeConstant);
+                                    $httpStatusCode = \constant($httpStatusCodeConstant);
                                 }
                             }
 
@@ -272,10 +291,6 @@ final class Configuration implements ConfigurationInterface
 
     /**
      * Adds a format section.
-     *
-     * @param ArrayNodeDefinition $rootNode
-     * @param string              $key
-     * @param array               $defaultValue
      */
     private function addFormatSection(ArrayNodeDefinition $rootNode, string $key, array $defaultValue)
     {

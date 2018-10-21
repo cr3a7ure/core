@@ -32,7 +32,7 @@ final class YamlExtractor extends AbstractExtractor
     protected function extractPath(string $path)
     {
         try {
-            $resourcesYaml = Yaml::parse(file_get_contents($path), Yaml::PARSE_KEYS_AS_STRINGS | Yaml::PARSE_CONSTANT);
+            $resourcesYaml = Yaml::parse(file_get_contents($path), Yaml::PARSE_CONSTANT);
         } catch (ParseException $e) {
             $e->setParsedFile($path);
 
@@ -43,8 +43,8 @@ final class YamlExtractor extends AbstractExtractor
             return;
         }
 
-        if (!is_array($resourcesYaml)) {
-            throw new InvalidArgumentException(sprintf('"resources" setting is expected to be null or an array, %s given in "%s".', gettype($resourcesYaml), $path));
+        if (!\is_array($resourcesYaml)) {
+            throw new InvalidArgumentException(sprintf('"resources" setting is expected to be null or an array, %s given in "%s".', \gettype($resourcesYaml), $path));
         }
 
         $this->extractResources($resourcesYaml, $path);
@@ -53,12 +53,14 @@ final class YamlExtractor extends AbstractExtractor
     private function extractResources(array $resourcesYaml, string $path)
     {
         foreach ($resourcesYaml as $resourceName => $resourceYaml) {
+            $resourceName = $this->resolve($resourceName);
+
             if (null === $resourceYaml) {
                 $resourceYaml = [];
             }
 
-            if (!is_array($resourceYaml)) {
-                throw new InvalidArgumentException(sprintf('"%s" setting is expected to be null or an array, %s given in "%s".', $resourceName, gettype($resourceYaml), $path));
+            if (!\is_array($resourceYaml)) {
+                throw new InvalidArgumentException(sprintf('"%s" setting is expected to be null or an array, %s given in "%s".', $resourceName, \gettype($resourceYaml), $path));
             }
 
             $this->resources[$resourceName] = [
@@ -68,6 +70,8 @@ final class YamlExtractor extends AbstractExtractor
                 'type' => $this->phpize($resourceYaml, 'type', 'string'),
                 'itemOperations' => $resourceYaml['itemOperations'] ?? null,
                 'collectionOperations' => $resourceYaml['collectionOperations'] ?? null,
+                'subresourceOperations' => $resourceYaml['subresourceOperations'] ?? null,
+                'graphql' => $resourceYaml['graphql'] ?? null,
                 'attributes' => $resourceYaml['attributes'] ?? null,
             ];
 
@@ -77,8 +81,8 @@ final class YamlExtractor extends AbstractExtractor
                 continue;
             }
 
-            if (!is_array($resourceYaml['properties'])) {
-                throw new InvalidArgumentException(sprintf('"properties" setting is expected to be null or an array, %s given in "%s".', gettype($resourceYaml['properties']), $path));
+            if (!\is_array($resourceYaml['properties'])) {
+                throw new InvalidArgumentException(sprintf('"properties" setting is expected to be null or an array, %s given in "%s".', \gettype($resourceYaml['properties']), $path));
             }
 
             $this->extractProperties($resourceYaml, $resourceName, $path);
@@ -94,8 +98,8 @@ final class YamlExtractor extends AbstractExtractor
                 continue;
             }
 
-            if (!is_array($propertyValues)) {
-                throw new InvalidArgumentException(sprintf('"%s" setting is expected to be null or an array, %s given in "%s".', $propertyName, gettype($propertyValues), $path));
+            if (!\is_array($propertyValues)) {
+                throw new InvalidArgumentException(sprintf('"%s" setting is expected to be null or an array, %s given in "%s".', $propertyName, \gettype($propertyValues), $path));
             }
 
             $this->resources[$resourceName]['properties'][$propertyName] = [
@@ -108,7 +112,7 @@ final class YamlExtractor extends AbstractExtractor
                 'identifier' => $this->phpize($propertyValues, 'identifier', 'bool'),
                 'iri' => $this->phpize($propertyValues, 'iri', 'string'),
                 'vocabType' => $this->phpize($propertyValues, 'vocabType', 'string'),
-                'attributes' => $propertyValues['attributes'] ?? null,
+                'attributes' => $propertyValues['attributes'] ?? [],
                 'subresource' => $propertyValues['subresource'] ?? null,
             ];
         }
@@ -117,9 +121,6 @@ final class YamlExtractor extends AbstractExtractor
     /**
      * Transforms a YAML attribute's value in PHP value.
      *
-     * @param array  $array
-     * @param string $key
-     * @param string $type
      *
      * @throws InvalidArgumentException
      *
@@ -133,17 +134,17 @@ final class YamlExtractor extends AbstractExtractor
 
         switch ($type) {
             case 'bool':
-                if (is_bool($array[$key])) {
+                if (\is_bool($array[$key])) {
                     return $array[$key];
                 }
                 break;
             case 'string':
-                if (is_string($array[$key])) {
+                if (\is_string($array[$key])) {
                     return $array[$key];
                 }
                 break;
         }
 
-        throw new InvalidArgumentException(sprintf('The property "%s" must be a "%s", "%s" given.', $key, $type, gettype($array[$key])));
+        throw new InvalidArgumentException(sprintf('The property "%s" must be a "%s", "%s" given.', $key, $type, \gettype($array[$key])));
     }
 }

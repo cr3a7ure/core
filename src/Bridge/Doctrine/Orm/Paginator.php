@@ -32,6 +32,10 @@ final class Paginator extends AbstractPaginator implements PaginatorInterface
      */
     public function getLastPage(): float
     {
+        if (0 >= $this->maxResults) {
+            return 1.;
+        }
+
         return ceil($this->getTotalItems() / $this->maxResults) ?: 1.;
     }
 
@@ -40,6 +44,6 @@ final class Paginator extends AbstractPaginator implements PaginatorInterface
      */
     public function getTotalItems(): float
     {
-        return (float) ($this->totalItems ?? $this->totalItems = count($this->paginator));
+        return (float) ($this->totalItems ?? $this->totalItems = \count($this->paginator));
     }
 }

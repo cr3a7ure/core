@@ -5,7 +5,7 @@ Feature: Filter with serialization groups on items and collections
 
   @createSchema
   Scenario: Get a collection of resources by group dummy_foo without overriding
-    Given there is "10" dummy group objects
+    Given there are 10 dummy group objects
     When I send a "GET" request to "/dummy_groups?groups[]=dummy_foo"
     Then the response status code should be 200
     And the response should be in JSON
@@ -952,7 +952,6 @@ Feature: Filter with serialization groups on items and collections
     }
     """
 
-  @dropSchema
   Scenario: Create a resource by groups dummy, dummy_baz, with overriding and with whitelist
     When I add "Content-Type" header equal to "application/ld+json"
     And I send a "POST" request to "/dummy_groups?override_whitelisted_groups[]=dummy&override_whitelisted_groups[]=dummy_baz" with body:

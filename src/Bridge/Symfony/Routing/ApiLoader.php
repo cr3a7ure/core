@@ -18,6 +18,7 @@ use ApiPlatform\Core\Exception\InvalidResourceException;
 use ApiPlatform\Core\Exception\RuntimeException;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceNameCollectionFactoryInterface;
+use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Operation\Factory\SubresourceOperationFactoryInterface;
 use ApiPlatform\Core\PathResolver\OperationPathResolverInterface;
 use Symfony\Component\Config\FileLocator;
@@ -51,8 +52,10 @@ final class ApiLoader extends Loader
     private $resourceClassDirectories;
     private $subresourceOperationFactory;
     private $graphqlEnabled;
+    private $entrypointEnabled;
+    private $docsEnabled;
 
-    public function __construct(KernelInterface $kernel, ResourceNameCollectionFactoryInterface $resourceNameCollectionFactory, ResourceMetadataFactoryInterface $resourceMetadataFactory, OperationPathResolverInterface $operationPathResolver, ContainerInterface $container, array $formats, array $resourceClassDirectories = [], SubresourceOperationFactoryInterface $subresourceOperationFactory = null, bool $graphqlEnabled = false)
+    public function __construct(KernelInterface $kernel, ResourceNameCollectionFactoryInterface $resourceNameCollectionFactory, ResourceMetadataFactoryInterface $resourceMetadataFactory, OperationPathResolverInterface $operationPathResolver, ContainerInterface $container, array $formats, array $resourceClassDirectories = [], SubresourceOperationFactoryInterface $subresourceOperationFactory = null, bool $graphqlEnabled = false, bool $entrypointEnabled = true, bool $docsEnabled = true)
     {
         $this->fileLoader = new XmlFileLoader(new FileLocator($kernel->locateResource('@ApiPlatformBundle/Resources/config/routing')));
         $this->resourceNameCollectionFactory = $resourceNameCollectionFactory;
@@ -63,6 +66,8 @@ final class ApiLoader extends Loader
         $this->resourceClassDirectories = $resourceClassDirectories;
         $this->subresourceOperationFactory = $subresourceOperationFactory;
         $this->graphqlEnabled = $graphqlEnabled;
+        $this->entrypointEnabled = $entrypointEnabled;
+        $this->docsEnabled = $docsEnabled;
     }
 
     /**
@@ -87,13 +92,13 @@ final class ApiLoader extends Loader
 
             if (null !== $collectionOperations = $resourceMetadata->getCollectionOperations()) {
                 foreach ($collectionOperations as $operationName => $operation) {
-                    $this->addRoute($routeCollection, $resourceClass, $operationName, $operation, $resourceShortName, OperationType::COLLECTION);
+                    $this->addRoute($routeCollection, $resourceClass, $operationName, $operation, $resourceMetadata, OperationType::COLLECTION);
                 }
             }
 
             if (null !== $itemOperations = $resourceMetadata->getItemOperations()) {
                 foreach ($itemOperations as $operationName => $operation) {
-                    $this->addRoute($routeCollection, $resourceClass, $operationName, $operation, $resourceShortName, OperationType::ITEM);
+                    $this->addRoute($routeCollection, $resourceClass, $operationName, $operation, $resourceMetadata, OperationType::ITEM);
                 }
             }
 
@@ -102,10 +107,18 @@ final class ApiLoader extends Loader
             }
 
             foreach ($this->subresourceOperationFactory->create($resourceClass) as $operationId => $operation) {
+                if (null === $controller = $operation['controller'] ?? null) {
+                    $controller = self::DEFAULT_ACTION_PATTERN.'get_subresource';
+
+                    if (!$this->container->has($controller)) {
+                        throw new RuntimeException(sprintf('There is no builtin action for the %s %s operation. You need to define the controller yourself.', OperationType::SUBRESOURCE, 'GET'));
+                    }
+                }
+
                 $routeCollection->add($operation['route_name'], new Route(
                     $operation['path'],
                     [
-                        '_controller' => self::DEFAULT_ACTION_PATTERN.'get_subresource',
+                        '_controller' => $controller,
                         '_format' => null,
                         '_api_resource_class' => $operation['resource_class'],
                         '_api_subresource_operation_name' => $operation['route_name'],
@@ -115,12 +128,13 @@ final class ApiLoader extends Loader
                             'collection' => $operation['collection'],
                             'operationId' => $operationId,
                         ],
-                    ],
+                    ] + ($operation['defaults'] ?? []),
                     $operation['requirements'] ?? [],
-                    [],
-                    '',
-                    [],
-                    ['GET']
+                    $operation['options'] ?? [],
+                    $operation['host'] ?? '',
+                    $operation['schemes'] ?? [],
+                    ['GET'],
+                    $operation['condition'] ?? ''
                 ));
             }
         }
@@ -138,12 +152,16 @@ final class ApiLoader extends Loader
 
     /**
      * Load external files.
-     *
-     * @param RouteCollection $routeCollection
      */
     private function loadExternalFiles(RouteCollection $routeCollection)
     {
-        $routeCollection->addCollection($this->fileLoader->load('api.xml'));
+        if ($this->entrypointEnabled) {
+            $routeCollection->addCollection($this->fileLoader->load('api.xml'));
+        }
+
+        if ($this->docsEnabled) {
+            $routeCollection->addCollection($this->fileLoader->load('docs.xml'));
+        }
 
         if ($this->graphqlEnabled) {
             $graphqlCollection = $this->fileLoader->load('graphql.xml');
@@ -159,17 +177,12 @@ final class ApiLoader extends Loader
     /**
      * Creates and adds a route for the given operation to the route collection.
      *
-     * @param RouteCollection $routeCollection
-     * @param string          $resourceClass
-     * @param string          $operationName
-     * @param array           $operation
-     * @param string          $resourceShortName
-     * @param string          $operationType
-     *
      * @throws RuntimeException
      */
-    private function addRoute(RouteCollection $routeCollection, string $resourceClass, string $operationName, array $operation, string $resourceShortName, string $operationType)
+    private function addRoute(RouteCollection $routeCollection, string $resourceClass, string $operationName, array $operation, ResourceMetadata $resourceMetadata, string $operationType)
     {
+        $resourceShortName = $resourceMetadata->getShortName();
+
         if (isset($operation['route_name'])) {
             return;
         }
@@ -186,19 +199,23 @@ final class ApiLoader extends Loader
             }
         }
 
+        $path = trim(trim($resourceMetadata->getAttribute('route_prefix', '')), '/');
+        $path .= $this->operationPathResolver->resolveOperationPath($resourceShortName, $operation, $operationType, $operationName);
+
         $route = new Route(
-            $this->operationPathResolver->resolveOperationPath($resourceShortName, $operation, $operationType, $operationName),
+            $path,
             [
                 '_controller' => $controller,
                 '_format' => null,
                 '_api_resource_class' => $resourceClass,
                 sprintf('_api_%s_operation_name', $operationType) => $operationName,
-            ],
+            ] + ($operation['defaults'] ?? []),
             $operation['requirements'] ?? [],
-            [],
-            '',
-            [],
-            [$operation['method']]
+            $operation['options'] ?? [],
+            $operation['host'] ?? '',
+            $operation['schemes'] ?? [],
+            [$operation['method']],
+            $operation['condition'] ?? ''
         );
 
         $routeCollection->add(RouteNameGenerator::generate($operationName, $resourceShortName, $operationType), $route);

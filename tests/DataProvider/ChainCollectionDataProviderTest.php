@@ -36,18 +36,18 @@ class ChainCollectionDataProviderTest extends TestCase
 
         $firstDataProvider = $this->prophesize(CollectionDataProviderInterface::class);
         $firstDataProvider->willImplement(RestrictedDataProviderInterface::class);
-        $firstDataProvider->supports(Dummy::class, null)->willReturn(false);
+        $firstDataProvider->supports(Dummy::class, null, [])->willReturn(false);
 
         $secondDataProvider = $this->prophesize(CollectionDataProviderInterface::class);
         $secondDataProvider->willImplement(RestrictedDataProviderInterface::class);
-        $secondDataProvider->supports(Dummy::class, null)->willReturn(true);
-        $secondDataProvider->getCollection(Dummy::class, null)
+        $secondDataProvider->supports(Dummy::class, null, [])->willReturn(true);
+        $secondDataProvider->getCollection(Dummy::class, null, [])
             ->willReturn([$dummy, $dummy2]);
 
         $thirdDataProvider = $this->prophesize(CollectionDataProviderInterface::class);
         $thirdDataProvider->willImplement(RestrictedDataProviderInterface::class);
-        $thirdDataProvider->supports(Dummy::class, null)->willReturn(true);
-        $thirdDataProvider->getCollection(Dummy::class, null)->willReturn([$dummy]);
+        $thirdDataProvider->supports(Dummy::class, null, [])->willReturn(true);
+        $thirdDataProvider->getCollection(Dummy::class, null, [])->willReturn([$dummy]);
 
         $chainItemDataProvider = new ChainCollectionDataProvider([
             $firstDataProvider->reveal(),
@@ -65,11 +65,11 @@ class ChainCollectionDataProviderTest extends TestCase
     {
         $firstDataProvider = $this->prophesize(CollectionDataProviderInterface::class);
         $firstDataProvider->willImplement(RestrictedDataProviderInterface::class);
-        $firstDataProvider->supports('notfound', 'op')->willReturn(false);
+        $firstDataProvider->supports('notfound', 'op', [])->willReturn(false);
 
         $collection = (new ChainCollectionDataProvider([$firstDataProvider->reveal()]))->getCollection('notfound', 'op');
 
-        $this->assertTrue(is_array($collection) || $collection instanceof \Traversable);
+        $this->assertContains(true, [\is_array($collection), $collection instanceof \Traversable]);
         $this->assertEmpty($collection);
     }
 
@@ -85,13 +85,13 @@ class ChainCollectionDataProviderTest extends TestCase
         $dummy2->setName('Parks');
 
         $firstDataProvider = $this->prophesize(CollectionDataProviderInterface::class);
-        $firstDataProvider->getCollection(Dummy::class, null)->willThrow(ResourceClassNotSupportedException::class);
+        $firstDataProvider->getCollection(Dummy::class, null, [])->willThrow(ResourceClassNotSupportedException::class);
 
         $secondDataProvider = $this->prophesize(CollectionDataProviderInterface::class);
-        $secondDataProvider->getCollection(Dummy::class, null)->willReturn([$dummy, $dummy2]);
+        $secondDataProvider->getCollection(Dummy::class, null, [])->willReturn([$dummy, $dummy2]);
 
         $thirdDataProvider = $this->prophesize(CollectionDataProviderInterface::class);
-        $thirdDataProvider->getCollection(Dummy::class, null)->willReturn([$dummy]);
+        $thirdDataProvider->getCollection(Dummy::class, null, [])->willReturn([$dummy]);
 
         $chainItemDataProvider = new ChainCollectionDataProvider([$firstDataProvider->reveal(), $secondDataProvider->reveal(), $thirdDataProvider->reveal()]);
 
@@ -105,11 +105,11 @@ class ChainCollectionDataProviderTest extends TestCase
     public function testLegacyGetCollectionExceptions()
     {
         $firstDataProvider = $this->prophesize(CollectionDataProviderInterface::class);
-        $firstDataProvider->getCollection('notfound', 'op')->willThrow(ResourceClassNotSupportedException::class);
+        $firstDataProvider->getCollection('notfound', 'op', [])->willThrow(ResourceClassNotSupportedException::class);
 
         $collection = (new ChainCollectionDataProvider([$firstDataProvider->reveal()]))->getCollection('notfound', 'op');
 
-        $this->assertTrue(is_array($collection) || $collection instanceof \Traversable);
+        $this->assertContains(true, [\is_array($collection), $collection instanceof \Traversable]);
         $this->assertEmpty($collection);
     }
 
@@ -117,7 +117,7 @@ class ChainCollectionDataProviderTest extends TestCase
     {
         $collection = (new ChainCollectionDataProvider([]))->getCollection(Dummy::class);
 
-        $this->assertTrue(is_array($collection) || $collection instanceof \Traversable);
+        $this->assertContains(true, [\is_array($collection), $collection instanceof \Traversable]);
         $this->assertEmpty($collection);
     }
 }

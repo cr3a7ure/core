@@ -21,6 +21,7 @@ use ApiPlatform\Core\DataProvider\PartialPaginatorInterface;
 use ApiPlatform\Core\JsonLd\ContextBuilderInterface;
 use ApiPlatform\Core\JsonLd\Serializer\JsonLdContextTrait;
 use ApiPlatform\Core\Serializer\ContextTrait;
+use Symfony\Component\Serializer\Normalizer\CacheableSupportsMethodInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareTrait;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
@@ -31,7 +32,7 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
  * @author Kevin Dunglas <dunglas@gmail.com>
  * @author Samuel ROZE <samuel.roze@gmail.com>
  */
-final class CollectionNormalizer implements NormalizerInterface, NormalizerAwareInterface
+final class CollectionNormalizer implements NormalizerInterface, NormalizerAwareInterface, CacheableSupportsMethodInterface
 {
     use ContextTrait;
     use JsonLdContextTrait;
@@ -55,7 +56,7 @@ final class CollectionNormalizer implements NormalizerInterface, NormalizerAware
      */
     public function supportsNormalization($data, $format = null)
     {
-        return self::FORMAT === $format && (is_array($data) || ($data instanceof \Traversable));
+        return self::FORMAT === $format && (\is_array($data) || ($data instanceof \Traversable));
     }
 
     /**
@@ -91,13 +92,21 @@ final class CollectionNormalizer implements NormalizerInterface, NormalizerAware
 
         $paginated = null;
         if (
-            is_array($object) ||
+            \is_array($object) ||
             ($paginated = $object instanceof PaginatorInterface) ||
             $object instanceof \Countable && !$object instanceof PartialPaginatorInterface
         ) {
-            $data['hydra:totalItems'] = $paginated ? $object->getTotalItems() : count($object);
+            $data['hydra:totalItems'] = $paginated ? $object->getTotalItems() : \count($object);
         }
 
         return $data;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function hasCacheableSupportsMethod(): bool
+    {
+        return true;
     }
 }

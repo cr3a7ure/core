@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\EventListener;
 
+use ApiPlatform\Core\Api\IriConverterInterface;
 use ApiPlatform\Core\DataPersister\DataPersisterInterface;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent;
 
 /**
@@ -23,13 +23,15 @@ use Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent;
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Baptiste Meyer <baptiste.meyer@gmail.com>
  */
-class WriteListener
+final class WriteListener
 {
     private $dataPersister;
+    private $iriConverter;
 
-    public function __construct(DataPersisterInterface $dataPersister)
+    public function __construct(DataPersisterInterface $dataPersister, IriConverterInterface $iriConverter = null)
     {
         $this->dataPersister = $dataPersister;
+        $this->iriConverter = $iriConverter;
     }
 
     /**
@@ -38,7 +40,7 @@ class WriteListener
     public function onKernelView(GetResponseForControllerResultEvent $event)
     {
         $request = $event->getRequest();
-        if ($request->isMethodSafe(false) || !$request->attributes->has('_api_resource_class')) {
+        if ($request->isMethodSafe(false) || !$request->attributes->has('_api_resource_class') || !$request->attributes->getBoolean('_api_persist', true)) {
             return;
         }
 
@@ -48,12 +50,22 @@ class WriteListener
         }
 
         switch ($request->getMethod()) {
-            case Request::METHOD_PUT:
-            case Request::METHOD_PATCH:
-            case Request::METHOD_POST:
-                $this->dataPersister->persist($controllerResult);
+            case 'PUT':
+            case 'PATCH':
+            case 'POST':
+                $persistResult = $this->dataPersister->persist($controllerResult);
+
+                if (null === $persistResult) {
+                    @trigger_error(sprintf('Returning void from %s::persist() is deprecated since API Platform 2.3 and will not be supported in API Platform 3, an object should always be returned.', DataPersisterInterface::class), E_USER_DEPRECATED);
+                }
+
+                $event->setControllerResult($persistResult ?? $controllerResult);
+
+                if (null !== $this->iriConverter) {
+                    $request->attributes->set('_api_write_item_iri', $this->iriConverter->getIriFromItem($controllerResult));
+                }
                 break;
-            case Request::METHOD_DELETE:
+            case 'DELETE':
                 $this->dataPersister->remove($controllerResult);
                 $event->setControllerResult(null);
                 break;

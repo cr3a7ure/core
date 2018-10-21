@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Tests\Bridge\Symfony\Validator\EventListener;
 
 use ApiPlatform\Core\Bridge\Symfony\Validator\EventListener\ValidateListener;
+use ApiPlatform\Core\Bridge\Symfony\Validator\Exception\ValidationException;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\DummyEntity;
@@ -28,6 +29,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * @author Samuel ROZE <samuel.roze@gmail.com>
+ *
+ * @group legacy
  */
 class ValidateListenerTest extends TestCase
 {
@@ -148,15 +151,16 @@ class ValidateListenerTest extends TestCase
         $validationViewListener->onKernelView($event);
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Bridge\Symfony\Validator\Exception\ValidationException
-     */
     public function testThrowsValidationExceptionWithViolationsFound()
     {
+        $this->expectException(ValidationException::class);
+
         $data = new DummyEntity();
         $expectedValidationGroups = ['a', 'b', 'c'];
 
         $violationsProphecy = $this->prophesize(ConstraintViolationListInterface::class);
+        $violationsProphecy->rewind()->shouldBeCalled();
+        $violationsProphecy->valid()->shouldBeCalled();
         $violationsProphecy->count()->willReturn(1)->shouldBeCalled();
         $violations = $violationsProphecy->reveal();
 
@@ -191,7 +195,7 @@ class ValidateListenerTest extends TestCase
             '_api_receive' => $receive,
         ]);
 
-        $request->setMethod(Request::METHOD_POST);
+        $request->setMethod('POST');
         $event = new GetResponseForControllerResultEvent($kernel, $request, HttpKernelInterface::MASTER_REQUEST, $data);
 
         return [$resourceMetadataFactory, $event];

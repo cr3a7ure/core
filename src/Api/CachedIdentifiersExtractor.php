@@ -33,14 +33,20 @@ final class CachedIdentifiersExtractor implements IdentifiersExtractorInterface
     private $cacheItemPool;
     private $propertyAccessor;
     private $decorated;
+    private $resourceClassResolver;
     private $localCache = [];
     private $localResourceCache = [];
 
-    public function __construct(CacheItemPoolInterface $cacheItemPool, IdentifiersExtractorInterface $decorated, PropertyAccessorInterface $propertyAccessor = null)
+    public function __construct(CacheItemPoolInterface $cacheItemPool, IdentifiersExtractorInterface $decorated, PropertyAccessorInterface $propertyAccessor = null, ResourceClassResolverInterface $resourceClassResolver = null)
     {
         $this->cacheItemPool = $cacheItemPool;
         $this->propertyAccessor = $propertyAccessor ?? PropertyAccess::createPropertyAccessor();
         $this->decorated = $decorated;
+        $this->resourceClassResolver = $resourceClassResolver;
+
+        if (null === $this->resourceClassResolver) {
+            @trigger_error(sprintf('Not injecting %s in the CachedIdentifiersExtractor might introduce cache issues with object identifiers.', ResourceClassResolverInterface::class), E_USER_DEPRECATED);
+        }
     }
 
     /**
@@ -72,11 +78,16 @@ final class CachedIdentifiersExtractor implements IdentifiersExtractorInterface
         foreach ($keys as $propertyName) {
             $identifiers[$propertyName] = $this->propertyAccessor->getValue($item, $propertyName);
 
-            if (!is_object($identifiers[$propertyName])) {
+            if (!\is_object($identifiers[$propertyName])) {
                 continue;
             }
 
             $relatedResourceClass = $this->getObjectClass($identifiers[$propertyName]);
+
+            if (null !== $this->resourceClassResolver && !$this->resourceClassResolver->isResourceClass($relatedResourceClass)) {
+                continue;
+            }
+
             if (!$relatedIdentifiers = $this->localCache[$relatedResourceClass] ?? false) {
                 $relatedCacheKey = self::CACHE_KEY_PREFIX.md5($relatedResourceClass);
                 try {
@@ -106,19 +117,18 @@ final class CachedIdentifiersExtractor implements IdentifiersExtractorInterface
 
         try {
             $cacheItem = $this->cacheItemPool->getItem(self::CACHE_KEY_PREFIX.md5($resourceClass));
-            if ($cacheItem->isHit()) {
-                return $this->localCache[$resourceClass] = $cacheItem->get();
-            }
         } catch (CacheException $e) {
-            // do nothing
+            return $this->localCache[$resourceClass] = array_keys($retriever($item));
+        }
+
+        if ($cacheItem->isHit()) {
+            return $this->localCache[$resourceClass] = $cacheItem->get();
         }
 
         $keys = array_keys($retriever($item));
 
-        if (isset($cacheItem)) {
-            $cacheItem->set($keys);
-            $this->cacheItemPool->save($cacheItem);
-        }
+        $cacheItem->set($keys);
+        $this->cacheItemPool->save($cacheItem);
 
         return $this->localCache[$resourceClass] = $keys;
     }

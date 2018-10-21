@@ -20,10 +20,7 @@ use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behatch\Context\RestContext;
 use Behatch\Json\Json;
 use Behatch\Json\JsonInspector;
-use Behatch\Json\JsonSchema;
 use Doctrine\Common\Persistence\ManagerRegistry;
-use JsonSchema\RefResolver;
-use JsonSchema\Uri\UriRetriever;
 use JsonSchema\Validator;
 use PHPUnit\Framework\ExpectationFailedException;
 
@@ -33,6 +30,7 @@ final class JsonApiContext implements Context
      * @var RestContext
      */
     private $restContext;
+    private $validator;
     private $inspector;
     private $jsonApiSchemaFile;
     private $manager;
@@ -43,6 +41,7 @@ final class JsonApiContext implements Context
             throw new \InvalidArgumentException('The JSON API schema doesn\'t exist.');
         }
 
+        $this->validator = new Validator();
         $this->inspector = new JsonInspector('javascript');
         $this->jsonApiSchemaFile = $jsonApiSchemaFile;
         $this->manager = $doctrine->getManager();
@@ -65,13 +64,12 @@ final class JsonApiContext implements Context
      */
     public function theJsonShouldBeValidAccordingToTheJsonApiSchema()
     {
-        $refResolver = new RefResolver(new UriRetriever());
-        $refResolver::$maxDepth = 15;
+        $json = $this->getJson()->getContent();
+        $this->validator->validate($json, (object) ['$ref' => 'file://'.__DIR__.'/../../'.$this->jsonApiSchemaFile]);
 
-        (new JsonSchema(file_get_contents($this->jsonApiSchemaFile), 'file://'.__DIR__))
-            ->resolve($refResolver)
-            ->validate($this->getJson(), new Validator())
-        ;
+        if (!$this->validator->isValid()) {
+            throw new ExpectationFailedException(sprintf('The JSON is not valid according to the JSON API schema.'));
+        }
     }
 
     /**
@@ -79,7 +77,8 @@ final class JsonApiContext implements Context
      */
     public function theJsonNodeShouldBeAnEmptyArray($node)
     {
-        if (!is_array($actual = $this->getValueOfNode($node)) || !empty($actual)) {
+        $actual = $this->getValueOfNode($node);
+        if (null !== $actual && [] !== $actual) {
             throw new ExpectationFailedException(sprintf('The node value is `%s`', json_encode($actual)));
         }
     }

@@ -18,6 +18,7 @@ use ApiPlatform\Core\Api\FilterInterface as ApiFilterInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\FilterExtension;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Filter\FilterInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGenerator;
+use ApiPlatform\Core\Exception\InvalidArgumentException;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
@@ -41,7 +42,7 @@ class FilterExtensionTest extends TestCase
         $queryBuilder = $queryBuilderProphecy->reveal();
 
         $ormFilterProphecy = $this->prophesize(FilterInterface::class);
-        $ormFilterProphecy->apply($queryBuilder, new QueryNameGenerator(), Dummy::class, 'get')->shouldBeCalled();
+        $ormFilterProphecy->apply($queryBuilder, new QueryNameGenerator(), Dummy::class, 'get', ['filters' => []])->shouldBeCalled();
 
         $ordinaryFilterProphecy = $this->prophesize(ApiFilterInterface::class);
 
@@ -70,7 +71,7 @@ class FilterExtensionTest extends TestCase
         $queryBuilder = $queryBuilderProphecy->reveal();
 
         $filterProphecy = $this->prophesize(FilterInterface::class);
-        $filterProphecy->apply($queryBuilder, new QueryNameGenerator(), Dummy::class, 'get')->shouldBeCalled();
+        $filterProphecy->apply($queryBuilder, new QueryNameGenerator(), Dummy::class, 'get', ['filters' => []])->shouldBeCalled();
 
         $orderExtensionTest = new FilterExtension($resourceMetadataFactoryProphecy->reveal(), new FilterCollection(['dummyFilter' => $filterProphecy->reveal()]));
         $orderExtensionTest->applyToCollection($queryBuilder, new QueryNameGenerator(), Dummy::class, 'get');
@@ -78,11 +79,12 @@ class FilterExtensionTest extends TestCase
 
     /**
      * @group legacy
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage The "$filterLocator" argument is expected to be an implementation of the "Psr\Container\ContainerInterface" interface.
      */
     public function testConstructWithInvalidFilterLocator()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The "$filterLocator" argument is expected to be an implementation of the "Psr\\Container\\ContainerInterface" interface.');
+
         new FilterExtension($this->prophesize(ResourceMetadataFactoryInterface::class)->reveal(), new \ArrayObject());
     }
 

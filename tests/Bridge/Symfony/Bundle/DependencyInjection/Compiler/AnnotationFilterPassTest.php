@@ -19,6 +19,7 @@ use ApiPlatform\Core\Annotation\ApiResource;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Filter\DateFilter;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Core\Bridge\Symfony\Bundle\DependencyInjection\Compiler\AnnotationFilterPass;
+use ApiPlatform\Core\Exception\InvalidArgumentException;
 use ApiPlatform\Core\Serializer\Filter\GroupFilter;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Doctrine\Orm\Filter\AnotherDummyFilter;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
@@ -58,7 +59,7 @@ class AnnotationFilterPassTest extends TestCase
 
         $reader->getClassAnnotations(Argument::type(\ReflectionClass::class))->will(function ($args) {
             if (Dummy::class === $args[0]->name) {
-                return [new ApiFilter(['value' => SearchFilter::class, 'strategy' => 'exact', 'properties' => ['description', 'relatedDummy.name', 'name']]), new ApiResource(), new ApiFilter(['value' => GroupFilter::class, 'arguments' => ['parameterName' => 'foobar']])];
+                return [new ApiFilter(['value' => SearchFilter::class, 'strategy' => 'exact', 'properties' => ['description', 'relatedDummy.name', 'name']]), new ApiResource([]), new ApiFilter(['value' => GroupFilter::class, 'arguments' => ['parameterName' => 'foobar']])];
             }
 
             return [];
@@ -73,7 +74,7 @@ class AnnotationFilterPassTest extends TestCase
         $containerBuilderProphecy->setDefinition('annotated_api_platform_core_tests_fixtures_test_bundle_entity_dummy_api_platform_core_bridge_doctrine_orm_filter_search_filter', Argument::that(function ($def) {
             $this->assertInstanceOf(Definition::class, $def);
             $this->assertEquals(SearchFilter::class, $def->getClass());
-            $this->assertEquals($def->getArguments(), ['$properties' => ['description', 'relatedDummy.name', 'name']]);
+            $this->assertEquals(['$properties' => ['description' => null, 'relatedDummy.name' => null, 'name' => null]], $def->getArguments());
 
             return true;
         }))->shouldBeCalled();
@@ -81,7 +82,7 @@ class AnnotationFilterPassTest extends TestCase
         $containerBuilderProphecy->setDefinition('annotated_api_platform_core_tests_fixtures_test_bundle_entity_dummy_api_platform_core_serializer_filter_group_filter', Argument::that(function ($def) {
             $this->assertInstanceOf(Definition::class, $def);
             $this->assertEquals(GroupFilter::class, $def->getClass());
-            $this->assertEquals($def->getArguments(), ['$parameterName' => 'foobar']);
+            $this->assertEquals(['$parameterName' => 'foobar'], $def->getArguments());
 
             return true;
         }))->shouldBeCalled();
@@ -89,7 +90,7 @@ class AnnotationFilterPassTest extends TestCase
         $containerBuilderProphecy->setDefinition('annotated_api_platform_core_tests_fixtures_test_bundle_entity_dummy_api_platform_core_bridge_doctrine_orm_filter_date_filter', Argument::that(function ($def) {
             $this->assertInstanceOf(Definition::class, $def);
             $this->assertEquals(DateFilter::class, $def->getClass());
-            $this->assertEquals($def->getArguments(), []);
+            $this->assertEquals(['$properties' => ['dummyDate' => null]], $def->getArguments());
 
             return true;
         }))->shouldBeCalled();
@@ -97,12 +98,11 @@ class AnnotationFilterPassTest extends TestCase
         $annotationFilterPass->process($containerBuilderProphecy->reveal());
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage The filter class "ApiPlatform\Core\Tests\Fixtures\TestBundle\Doctrine\Orm\Filter\AnotherDummyFilter" does not implement "ApiPlatform\Core\Api\FilterInterface".
-     */
     public function testProcessWrongFilter()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The filter class "ApiPlatform\\Core\\Tests\\Fixtures\\TestBundle\\Doctrine\\Orm\\Filter\\AnotherDummyFilter" does not implement "ApiPlatform\\Core\\Api\\FilterInterface".');
+
         $annotationFilterPass = new AnnotationFilterPass();
 
         $this->assertInstanceOf(CompilerPassInterface::class, $annotationFilterPass);

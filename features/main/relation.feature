@@ -19,6 +19,7 @@ Feature: Relations support
       "@context": "/contexts/ThirdLevel",
       "@id": "/third_levels/1",
       "@type": "ThirdLevel",
+      "fourthLevel": null,
       "id": 1,
       "level": 3,
       "test": true
@@ -64,12 +65,14 @@ Feature: Relations support
       "name": null,
       "symfony": "symfony",
       "dummyDate": null,
-      "thirdLevel": "/third_levels/1",
+      "thirdLevel": {
+        "@id": "/third_levels/1",
+        "@type": "ThirdLevel",
+        "fourthLevel": null
+      },
       "relatedToDummyFriend": [],
       "dummyBoolean": null,
-      "embeddedDummy": null,
-      "id": 1,
-      "symfony": "symfony",
+      "embeddedDummy": [],
       "age": null
     }
     """
@@ -94,6 +97,7 @@ Feature: Relations support
       "@id": "/related_to_dummy_friends/dummyFriend=1;relatedDummy=1",
       "@type": "RelatedToDummyFriend",
       "name": "Friends relation",
+      "description": null,
       "dummyFriend": {
         "@id": "/dummy_friends/1",
         "@type": "DummyFriend",
@@ -114,6 +118,7 @@ Feature: Relations support
       "@id": "/related_to_dummy_friends/dummyFriend=1;relatedDummy=1",
       "@type": "RelatedToDummyFriend",
       "name": "Friends relation",
+      "description": null,
       "dummyFriend": {
         "@id": "/dummy_friends/1",
         "@type": "DummyFriend",
@@ -155,10 +160,14 @@ Feature: Relations support
         "/related_dummies/1"
       ],
       "jsonData": [],
+      "arrayData": [],
       "name_converted": null,
+      "relatedOwnedDummy": null,
+      "relatedOwningDummy": null,
       "id": 1,
       "name": "Dummy with relations",
-      "alias": null
+      "alias": null,
+      "foo": null
     }
     """
 
@@ -258,7 +267,8 @@ Feature: Relations support
           "thirdLevel": {
             "@id": "/third_levels/1",
             "@type": "ThirdLevel",
-            "level": 3
+            "level": 3,
+            "fourthLevel": null
           }
         }
       }
@@ -462,16 +472,18 @@ Feature: Relations support
       "name": null,
       "symfony": "symfony",
       "dummyDate": null,
-      "thirdLevel": "/third_levels/1",
+      "thirdLevel": {
+        "@id": "/third_levels/1",
+        "@type": "ThirdLevel",
+        "fourthLevel": null
+      },
       "relatedToDummyFriend": [],
       "dummyBoolean": null,
-      "embeddedDummy": null,
-      "symfony": "symfony",
+      "embeddedDummy": [],
       "age": null
     }
     """
 
-  @dropSchema
   Scenario: Issue #1222
     Given there are people having pets
     When I add "Content-Type" header equal to "application/ld+json"
@@ -503,3 +515,70 @@ Feature: Relations support
       "hydra:totalItems": 1
     }
     """
+
+  Scenario: Passing a (valid) plain identifier on a relation
+    When I add "Content-Type" header equal to "application/json"
+    And I send a "POST" request to "/dummies" with body:
+    """
+    {
+      "relatedDummy": "1",
+      "relatedDummies": ["1"],
+      "name": "Dummy with plain relations"
+    }
+    """
+    Then the response status code should be 201
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON should be equal to:
+    """
+    {
+      "@context":"/contexts/Dummy",
+      "@id":"/dummies/2",
+      "@type":"Dummy",
+      "description":null,
+      "dummy":null,
+      "dummyBoolean":null,
+      "dummyDate":null,
+      "dummyFloat":null,
+      "dummyPrice":null,
+      "relatedDummy":"/related_dummies/1",
+      "relatedDummies":["/related_dummies/1"],
+      "jsonData":[],
+      "arrayData":[],
+      "name_converted":null,
+      "relatedOwnedDummy": null,
+      "relatedOwningDummy": null,
+      "id":2,
+      "name":"Dummy with plain relations",
+      "alias":null,
+      "foo":null
+    }
+    """
+
+  @dropSchema
+  Scenario: Passing an invalid IRI to a relation
+    When I add "Content-Type" header equal to "application/ld+json"
+    And I send a "POST" request to "/relation_embedders" with body:
+    """
+    {
+      "related": "certainly not an iri and not a plain identifier"
+    }
+    """
+    Then the response status code should be 400
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON node "hydra:description" should contain "Invalid value provided (invalid IRI?)."
+
+  @dropSchema
+  Scenario: Passing an invalid type to a relation
+    When I add "Content-Type" header equal to "application/ld+json"
+    And I send a "POST" request to "/relation_embedders" with body:
+    """
+    {
+      "related": 8
+    }
+    """
+    Then the response status code should be 400
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON node "hydra:description" should contain "Invalid value provided (invalid IRI?)."

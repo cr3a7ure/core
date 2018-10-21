@@ -24,20 +24,7 @@ use Doctrine\ORM\QueryBuilder;
  */
 interface QueryResultCollectionExtensionInterface extends QueryCollectionExtensionInterface
 {
-    /**
-     * @param string      $resourceClass
-     * @param string|null $operationName
-     *
-     * @return bool
-     */
     public function supportsResult(string $resourceClass, string $operationName = null): bool;
 
-    /**
-     * @param QueryBuilder $queryBuilder
-     * @param string       $resourceClass
-     * @param string|null  $operationName
-     *
-     * @return mixed
-     */
-    public function getResult(QueryBuilder $queryBuilder/*, string $resourceClass, string $operationName = null*/);
+    public function getResult(QueryBuilder $queryBuilder);
 }

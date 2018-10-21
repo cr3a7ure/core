@@ -16,7 +16,9 @@ use Behat\Behat\Context\Environment\InitializedContextEnvironment;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\PyStringNode;
 use Behatch\Context\RestContext;
-use Symfony\Component\HttpFoundation\Request;
+use Behatch\HttpCall\Request;
+use GraphQL\Type\Introspection;
+use PHPUnit\Framework\ExpectationFailedException;
 
 /**
  * Context for GraphQL.
@@ -39,6 +41,13 @@ final class GraphqlContext implements Context
      * @var int
      */
     private $graphqlLine;
+
+    private $request;
+
+    public function __construct(Request $request)
+    {
+        $this->request = $request;
+    }
 
     /**
      * Gives access to the Behatch context.
@@ -88,8 +97,32 @@ final class GraphqlContext implements Context
         $this->sendGraphqlRequest();
     }
 
+    /**
+     * @When I send the query to introspect the schema
+     */
+    public function ISendTheQueryToIntrospectTheSchema()
+    {
+        $this->graphqlRequest = ['query' => Introspection::getIntrospectionQuery()];
+        $this->sendGraphqlRequest();
+    }
+
+    /**
+     * @Then the GraphQL field :fieldName is deprecated for the reason :reason
+     */
+    public function theGraphQLFieldIsDeprecatedForTheReason(string $fieldName, string $reason)
+    {
+        foreach (json_decode($this->request->getContent(), true)['data']['__type']['fields'] as $field) {
+            if ($fieldName === $field['name'] && $field['isDeprecated'] && $reason === $field['deprecationReason']) {
+                return;
+            }
+        }
+
+        throw new ExpectationFailedException(sprintf('The field "%s" is not deprecated.', $fieldName));
+    }
+
     private function sendGraphqlRequest()
     {
-        $this->restContext->iSendARequestTo(Request::METHOD_GET, '/graphql?'.http_build_query($this->graphqlRequest));
+        $this->request->setHttpHeader('Accept', null);
+        $this->restContext->iSendARequestTo('GET', '/graphql?'.http_build_query($this->graphqlRequest));
     }
 }

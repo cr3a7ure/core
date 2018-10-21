@@ -23,7 +23,7 @@ use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\ContainNonResource;
  */
 class ContainNonResourceItemDataProvider implements ItemDataProviderInterface, RestrictedDataProviderInterface
 {
-    public function supports(string $resourceClass, string $operationName = null): bool
+    public function supports(string $resourceClass, string $operationName = null, array $context = []): bool
     {
         return ContainNonResource::class === $resourceClass;
     }
@@ -33,6 +33,10 @@ class ContainNonResourceItemDataProvider implements ItemDataProviderInterface, R
      */
     public function getItem(string $resourceClass, $id, string $operationName = null, array $context = [])
     {
+        if (!is_scalar($id)) {
+            throw new \InvalidArgumentException('The id must be a scalar.');
+        }
+
         // Retrieve the blog post item from somewhere
         $cnr = new ContainNonResource();
         $cnr->id = $id;

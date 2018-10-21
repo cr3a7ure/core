@@ -17,6 +17,7 @@ use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\PaginationExtension;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGenerator;
 use ApiPlatform\Core\DataProvider\PaginatorInterface;
 use ApiPlatform\Core\DataProvider\PartialPaginatorInterface;
+use ApiPlatform\Core\Exception\InvalidArgumentException;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use Doctrine\Common\Persistence\ManagerRegistry;
@@ -67,14 +68,10 @@ class PaginationExtensionTest extends TestCase
         $extension->applyToCollection($queryBuilder, new QueryNameGenerator(), 'Foo', 'op');
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage Item per page parameter should not be less than or equal to 0
-     */
     public function testApplyToCollectionWithItemPerPageZero()
     {
         $requestStack = new RequestStack();
-        $requestStack->push(new Request(['pagination' => true, 'itemsPerPage' => 0, '_page' => 2]));
+        $requestStack->push(new Request(['pagination' => true, 'itemsPerPage' => 0, '_page' => 1]));
 
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
         $attributes = [
@@ -82,12 +79,12 @@ class PaginationExtensionTest extends TestCase
             'pagination_client_enabled' => true,
             'pagination_items_per_page' => 0,
         ];
-        $resourceMetadataFactoryProphecy->create('Foo')->willReturn(new ResourceMetadata(null, null, null, null, [], [], $attributes))->shouldBeCalled();
+        $resourceMetadataFactoryProphecy->create('Foo')->willReturn(new ResourceMetadata(null, null, null, [], [], $attributes))->shouldBeCalled();
         $resourceMetadataFactory = $resourceMetadataFactoryProphecy->reveal();
 
         $queryBuilderProphecy = $this->prophesize(QueryBuilder::class);
-        $queryBuilderProphecy->setFirstResult(40)->willReturn($queryBuilderProphecy)->shouldNotBeCalled();
-        $queryBuilderProphecy->setMaxResults(40)->shouldNotBeCalled();
+        $queryBuilderProphecy->setFirstResult(0)->willReturn($queryBuilderProphecy)->shouldBeCalled();
+        $queryBuilderProphecy->setMaxResults(0)->shouldBeCalled();
         $queryBuilder = $queryBuilderProphecy->reveal();
 
         $extension = new PaginationExtension(
@@ -103,12 +100,46 @@ class PaginationExtensionTest extends TestCase
         $extension->applyToCollection($queryBuilder, new QueryNameGenerator(), 'Foo', 'op');
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage Item per page parameter should not be less than or equal to 0
-     */
+    public function testApplyToCollectionWithItemPerPageZeroAndPage2()
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Page should not be greater than 1 if itemsPerPage is equal to 0');
+
+        $requestStack = new RequestStack();
+        $requestStack->push(new Request(['pagination' => true, 'itemsPerPage' => 0, '_page' => 2]));
+
+        $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
+        $attributes = [
+            'pagination_enabled' => true,
+            'pagination_client_enabled' => true,
+            'pagination_items_per_page' => 0,
+        ];
+        $resourceMetadataFactoryProphecy->create('Foo')->willReturn(new ResourceMetadata(null, null, null, null, [], [], $attributes))->shouldBeCalled();
+        $resourceMetadataFactory = $resourceMetadataFactoryProphecy->reveal();
+
+        $queryBuilderProphecy = $this->prophesize(QueryBuilder::class);
+        $queryBuilderProphecy->setFirstResult(0)->willReturn($queryBuilderProphecy)->shouldNotBeCalled();
+        $queryBuilderProphecy->setMaxResults(0)->shouldNotBeCalled();
+        $queryBuilder = $queryBuilderProphecy->reveal();
+
+        $extension = new PaginationExtension(
+            $this->prophesize(ManagerRegistry::class)->reveal(),
+            $requestStack,
+            $resourceMetadataFactory,
+            true,
+            false,
+            false,
+            0,
+            '_page'
+        );
+        $extension->applyToCollection($queryBuilder, new QueryNameGenerator(), 'Foo', 'op');
+    }
+
     public function testApplyToCollectionWithItemPerPageLessThen0()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Item per page parameter should not be less than 0');
+
         $requestStack = new RequestStack();
         $requestStack->push(new Request(['pagination' => true, 'itemsPerPage' => -20, '_page' => 2]));
 
@@ -116,7 +147,7 @@ class PaginationExtensionTest extends TestCase
         $attributes = [
             'pagination_enabled' => true,
             'pagination_client_enabled' => true,
-            'pagination_items_per_page' => 0,
+            'pagination_items_per_page' => -20,
         ];
         $resourceMetadataFactoryProphecy->create('Foo')->willReturn(new ResourceMetadata(null, null, null, null, [], [], $attributes))->shouldBeCalled();
         $resourceMetadataFactory = $resourceMetadataFactoryProphecy->reveal();
@@ -268,6 +299,41 @@ class PaginationExtensionTest extends TestCase
         $extension->applyToCollection($queryBuilder, new QueryNameGenerator(), 'Foo', 'op');
     }
 
+    public function testApplyToCollectionWithMaximumItemsPerPage()
+    {
+        $requestStack = new RequestStack();
+        $requestStack->push(new Request(['pagination' => true, 'itemsPerPage' => 80, 'page' => 1]));
+
+        $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
+        $attributes = [
+            'pagination_enabled' => true,
+            'pagination_client_enabled' => true,
+            'maximum_items_per_page' => 80,
+        ];
+        $resourceMetadataFactoryProphecy->create('Foo')->willReturn(new ResourceMetadata(null, null, null, [], [], $attributes))->shouldBeCalled();
+        $resourceMetadataFactory = $resourceMetadataFactoryProphecy->reveal();
+
+        $queryBuilderProphecy = $this->prophesize(QueryBuilder::class);
+        $queryBuilderProphecy->setFirstResult(0)->willReturn($queryBuilderProphecy)->shouldBeCalled();
+        $queryBuilderProphecy->setMaxResults(80)->shouldBeCalled();
+        $queryBuilder = $queryBuilderProphecy->reveal();
+
+        $extension = new PaginationExtension(
+            $this->prophesize(ManagerRegistry::class)->reveal(),
+            $requestStack,
+            $resourceMetadataFactory,
+            true,
+            true,
+            true,
+            30,
+            'page',
+            'pagination',
+            'itemsPerPage',
+            50
+        );
+        $extension->applyToCollection($queryBuilder, new QueryNameGenerator(), 'Foo', 'op');
+    }
+
     public function testSupportsResult()
     {
         $requestStack = new RequestStack();
@@ -357,6 +423,14 @@ class PaginationExtensionTest extends TestCase
         $this->assertInstanceOf(PaginatorInterface::class, $result);
     }
 
+    public function testGetResultWithoutFetchJoinCollection()
+    {
+        $result = $this->getPaginationExtensionResult(false, false, false);
+
+        $this->assertInstanceOf(PartialPaginatorInterface::class, $result);
+        $this->assertInstanceOf(PaginatorInterface::class, $result);
+    }
+
     public function testGetResultWithPartial()
     {
         $result = $this->getPaginationExtensionResult(true);
@@ -365,12 +439,7 @@ class PaginationExtensionTest extends TestCase
         $this->assertNotInstanceOf(PaginatorInterface::class, $result);
     }
 
-    /**
-     * @group legacy
-     * @expectedDeprecation Method ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\PaginationExtension::getResult() will have a 2nd `string $resourceClass` argument in version 3.0. Not defining it is deprecated since 2.2.
-     * @expectedDeprecation Method ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\PaginationExtension::getResult() will have a 3rd `string $operationName = null` argument in version 3.0. Not defining it is deprecated since 2.2.
-     */
-    public function testLegacyGetResult()
+    public function testSimpleGetResult()
     {
         $result = $this->getPaginationExtensionResult(false, true);
 
@@ -378,7 +447,7 @@ class PaginationExtensionTest extends TestCase
         $this->assertInstanceOf(PaginatorInterface::class, $result);
     }
 
-    private function getPaginationExtensionResult(bool $partial = false, bool $legacy = false)
+    private function getPaginationExtensionResult(bool $partial = false, bool $legacy = false, bool $fetchJoinCollection = true)
     {
         $requestStack = new RequestStack();
         $requestStack->push(new Request(['partial' => $partial]));
@@ -402,7 +471,7 @@ class PaginationExtensionTest extends TestCase
         $queryBuilderProphecy->getRootEntities()->willReturn([])->shouldBeCalled();
         $queryBuilderProphecy->getQuery()->willReturn($query)->shouldBeCalled();
         $queryBuilderProphecy->getDQLPart(Argument::that(function ($arg) {
-            return in_array($arg, ['having', 'orderBy', 'join'], true);
+            return \in_array($arg, ['having', 'orderBy', 'join'], true);
         }))->willReturn('')->shouldBeCalled();
         $queryBuilderProphecy->getMaxResults()->willReturn(42)->shouldBeCalled();
 

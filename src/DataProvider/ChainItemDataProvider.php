@@ -27,7 +27,7 @@ final class ChainItemDataProvider implements ItemDataProviderInterface
     /**
      * @param ItemDataProviderInterface[] $dataProviders
      */
-    public function __construct(array $dataProviders)
+    public function __construct(/* iterable */ $dataProviders)
     {
         $this->dataProviders = $dataProviders;
     }
@@ -40,13 +40,23 @@ final class ChainItemDataProvider implements ItemDataProviderInterface
         foreach ($this->dataProviders as $dataProvider) {
             try {
                 if ($dataProvider instanceof RestrictedDataProviderInterface
-                    && !$dataProvider->supports($resourceClass, $operationName)) {
+                    && !$dataProvider->supports($resourceClass, $operationName, $context)) {
                     continue;
                 }
 
-                return $dataProvider->getItem($resourceClass, $id, $operationName, $context);
+                $identifier = $id;
+                if (!$dataProvider instanceof DenormalizedIdentifiersAwareItemDataProviderInterface && $identifier && \is_array($identifier)) {
+                    if (\count($identifier) > 1) {
+                        @trigger_error(sprintf('Receiving "$id" as non-array in an item data provider is deprecated in 2.3 in favor of implementing "%s".', DenormalizedIdentifiersAwareItemDataProviderInterface::class), E_USER_DEPRECATED);
+                        $identifier = http_build_query($identifier, '', ';');
+                    } else {
+                        $identifier = current($identifier);
+                    }
+                }
+
+                return $dataProvider->getItem($resourceClass, $identifier, $operationName, $context);
             } catch (ResourceClassNotSupportedException $e) {
-                @trigger_error(sprintf('Throwing a "%s" is deprecated in favor of implementing "%s"', get_class($e), RestrictedDataProviderInterface::class), E_USER_DEPRECATED);
+                @trigger_error(sprintf('Throwing a "%s" is deprecated in favor of implementing "%s"', \get_class($e), RestrictedDataProviderInterface::class), E_USER_DEPRECATED);
                 continue;
             }
         }

@@ -17,6 +17,7 @@ use ApiPlatform\Core\DataPersister\DataPersisterInterface;
 use ApiPlatform\Core\Util\ClassInfoTrait;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\Common\Persistence\ObjectManager as DoctrineObjectManager;
+use Doctrine\ORM\Mapping\ClassMetadataInfo;
 
 /**
  * Data persister for Doctrine.
@@ -48,11 +49,17 @@ final class DataPersister implements DataPersisterInterface
     public function persist($data)
     {
         if (!$manager = $this->getManager($data)) {
-            return;
+            return $data;
         }
 
-        $manager->persist($data);
+        if (!$manager->contains($data) || $this->isDeferredExplicit($manager, $data)) {
+            $manager->persist($data);
+        }
+
         $manager->flush();
+        $manager->refresh($data);
+
+        return $data;
     }
 
     /**
@@ -71,12 +78,26 @@ final class DataPersister implements DataPersisterInterface
     /**
      * Gets the Doctrine object manager associated with given data.
      *
-     * @param mixed $data
      *
      * @return DoctrineObjectManager|null
      */
     private function getManager($data)
     {
-        return is_object($data) ? $this->managerRegistry->getManagerForClass($this->getObjectClass($data)) : null;
+        return \is_object($data) ? $this->managerRegistry->getManagerForClass($this->getObjectClass($data)) : null;
+    }
+
+    /**
+     * Checks if doctrine does not manage data automatically.
+     *
+     * @return bool
+     */
+    private function isDeferredExplicit(DoctrineObjectManager $manager, $data)
+    {
+        $classMetadata = $manager->getClassMetadata($this->getObjectClass($data));
+        if ($classMetadata instanceof ClassMetadataInfo && \method_exists($classMetadata, 'isChangeTrackingDeferredExplicit')) {
+            return $classMetadata->isChangeTrackingDeferredExplicit();
+        }
+
+        return false;
     }
 }

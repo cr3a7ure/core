@@ -31,12 +31,12 @@ trait AnnotationFilterExtractorTrait
      *
      * @param array $miscAnnotations class or property annotations
      *
-     * @return array only ApiFilter annotations
+     * @return \Iterator only ApiFilter annotations
      */
     private function getFilterAnnotations(array $miscAnnotations): \Iterator
     {
         foreach ($miscAnnotations as $miscAnnotation) {
-            if (ApiFilter::class === get_class($miscAnnotation)) {
+            if (ApiFilter::class === \get_class($miscAnnotation)) {
                 yield $miscAnnotation;
             }
         }
@@ -51,19 +51,23 @@ trait AnnotationFilterExtractorTrait
 
         if ($filterAnnotation->properties) {
             foreach ($filterAnnotation->properties as $property => $strategy) {
-                $properties[$property] = $strategy;
+                if (\is_int($property)) {
+                    $properties[$strategy] = null;
+                } else {
+                    $properties[$property] = $strategy;
+                }
             }
 
             return $properties;
         }
 
+        if (null !== $reflectionProperty) {
+            $properties[$reflectionProperty->getName()] = $filterAnnotation->strategy ?: null;
+
+            return $properties;
+        }
+
         if ($filterAnnotation->strategy) {
-            if (null !== $reflectionProperty) {
-                $properties[$reflectionProperty->getName()] = $filterAnnotation->strategy;
-
-                return $properties;
-            }
-
             foreach ($reflectionClass->getProperties() as $reflectionProperty) {
                 $properties[$reflectionProperty->getName()] = $filterAnnotation->strategy;
             }
@@ -83,7 +87,7 @@ trait AnnotationFilterExtractorTrait
 
         foreach ($this->getFilterAnnotations($reader->getClassAnnotations($reflectionClass)) as $filterAnnotation) {
             $filterClass = $filterAnnotation->filterClass;
-            $id = $this->generateFilterId($reflectionClass, $filterClass);
+            $id = $this->generateFilterId($reflectionClass, $filterClass, $filterAnnotation->id);
 
             if (!isset($filters[$id])) {
                 $filters[$id] = [$filterAnnotation->arguments, $filterClass];
@@ -97,7 +101,7 @@ trait AnnotationFilterExtractorTrait
         foreach ($reflectionClass->getProperties() as $reflectionProperty) {
             foreach ($this->getFilterAnnotations($reader->getPropertyAnnotations($reflectionProperty)) as $filterAnnotation) {
                 $filterClass = $filterAnnotation->filterClass;
-                $id = $this->generateFilterId($reflectionClass, $filterClass);
+                $id = $this->generateFilterId($reflectionClass, $filterClass, $filterAnnotation->id);
 
                 if (!isset($filters[$id])) {
                     $filters[$id] = [$filterAnnotation->arguments, $filterClass];
@@ -127,11 +131,12 @@ trait AnnotationFilterExtractorTrait
      *
      * @param \ReflectionClass $reflectionClass the reflection class of a Resource
      * @param string           $filterClass     the filter class
-     *
-     * @return string
+     * @param string           $filterId        the filter id
      */
-    private function generateFilterId(\ReflectionClass $reflectionClass, string $filterClass): string
+    private function generateFilterId(\ReflectionClass $reflectionClass, string $filterClass, string $filterId = null): string
     {
-        return 'annotated_'.Inflector::tableize(str_replace('\\', '', $reflectionClass->getName().(new \ReflectionClass($filterClass))->getName()));
+        $suffix = null !== $filterId ? '_'.$filterId : $filterId;
+
+        return 'annotated_'.Inflector::tableize(str_replace('\\', '', $reflectionClass->getName().(new \ReflectionClass($filterClass))->getName().$suffix));
     }
 }

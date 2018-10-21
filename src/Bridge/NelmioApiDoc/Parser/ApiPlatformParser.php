@@ -66,7 +66,7 @@ final class ApiPlatformParser implements ParserInterface
     public function supports(array $item)
     {
         $data = explode(':', $item['class'], 3);
-        if (!in_array($data[0], [self::IN_PREFIX, self::OUT_PREFIX], true)) {
+        if (!\in_array($data[0], [self::IN_PREFIX, self::OUT_PREFIX], true)) {
             return false;
         }
         if (!isset($data[1])) {
@@ -104,12 +104,7 @@ final class ApiPlatformParser implements ParserInterface
     /**
      * Parses a class.
      *
-     * @param ResourceMetadata $resourceMetadata
-     * @param string           $resourceClass
-     * @param string           $io
-     * @param string[]         $visited
-     *
-     * @return array
+     * @param string[] $visited
      */
     private function parseResource(ResourceMetadata $resourceMetadata, string $resourceClass, string $io, array $visited = []): array
     {
@@ -148,12 +143,6 @@ final class ApiPlatformParser implements ParserInterface
 
     /**
      * Returns groups of item & collection.
-     *
-     * @param ResourceMetadata $resourceMetadata
-     * @param string           $operationName
-     * @param string           $io
-     *
-     * @return array
      */
     private function getGroupsForItemAndCollectionOperation(ResourceMetadata $resourceMetadata, string $operationName, string $io): array
     {
@@ -178,13 +167,8 @@ final class ApiPlatformParser implements ParserInterface
     /**
      * Returns a property metadata.
      *
-     * @param ResourceMetadata $resourceMetadata
-     * @param string           $resourceClass
-     * @param string           $io
-     * @param string[]         $visited
-     * @param string[]         $options
-     *
-     * @return array
+     * @param string[] $visited
+     * @param string[] $options
      */
     private function getPropertyMetadata(ResourceMetadata $resourceMetadata, string $resourceClass, string $io, array $visited, array $options): array
     {
@@ -207,11 +191,8 @@ final class ApiPlatformParser implements ParserInterface
     /**
      * Parses a property.
      *
-     * @param ResourceMetadata $resourceMetadata
-     * @param PropertyMetadata $propertyMetadata
-     * @param string           $io
-     * @param Type|null        $type
-     * @param string[]         $visited
+     * @param string   $io
+     * @param string[] $visited
      *
      * @return array
      */
@@ -284,7 +265,7 @@ final class ApiPlatformParser implements ParserInterface
 
             $data['actualType'] = DataTypes::MODEL;
             $data['subType'] = $className;
-            $data['children'] = in_array($className, $visited, true) ? [] : $this->parseResource($resourceMetadata, $className, $io, $visited);
+            $data['children'] = \in_array($className, $visited, true) ? [] : $this->parseResource($resourceMetadata, $className, $io, $visited);
 
             return $data;
         }

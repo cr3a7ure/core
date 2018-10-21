@@ -16,6 +16,8 @@ Feature: Using custom writable identifier on resource
     Then the response status code should be 201
     And the response should be in JSON
     And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the header "Content-Location" should be equal to "/custom_writable_identifier_dummies/my_slug"
+    And the header "Location" should be equal to "/custom_writable_identifier_dummies/my_slug"
     And the JSON should be equal to:
     """
     {
@@ -78,6 +80,7 @@ Feature: Using custom writable identifier on resource
     Then the response status code should be 200
     And the response should be in JSON
     And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the header "Content-Location" should be equal to "/custom_writable_identifier_dummies/slug_modified"
     And the JSON should be equal to:
     """
     {
@@ -101,7 +104,6 @@ Feature: Using custom writable identifier on resource
     And "slug" property is readable for Hydra class "CustomWritableIdentifierDummy"
     And "slug" property is writable for Hydra class "CustomWritableIdentifierDummy"
 
-  @dropSchema
   Scenario: Delete a resource
     When I send a "DELETE" request to "/custom_writable_identifier_dummies/slug_modified"
     Then the response status code should be 204

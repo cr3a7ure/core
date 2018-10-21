@@ -28,6 +28,7 @@ interface FilterInterface
      *   - type: the type of the filter
      *   - required: if this filter is required
      *   - strategy: the used strategy
+     *   - is_collection (optional): is this filter is collection
      *   - swagger (optional): additional parameters for the path operation,
      *     e.g. 'swagger' => [
      *       'description' => 'My Description',
@@ -36,11 +37,7 @@ interface FilterInterface
      *     ]
      * The description can contain additional data specific to a filter.
      *
-     * @see ApiPlatform\Core\Swagger\Serializer\DocumentationNormalizer::getFiltersParameters
-     *
-     * @param string $resourceClass
-     *
-     * @return array
+     * @see \ApiPlatform\Core\Swagger\Serializer\DocumentationNormalizer::getFiltersParameters
      */
     public function getDescription(string $resourceClass): array;
 }

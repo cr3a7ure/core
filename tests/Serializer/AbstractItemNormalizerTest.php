@@ -53,8 +53,6 @@ class AbstractItemNormalizerTest extends TestCase
         $propertyAccessorProphecy = $this->prophesize(PropertyAccessorInterface::class);
 
         $resourceClassResolverProphecy = $this->prophesize(ResourceClassResolverInterface::class);
-        $resourceClassResolverProphecy->getResourceClass($dummy)->willReturn(Dummy::class)->shouldBeCalled();
-        $resourceClassResolverProphecy->getResourceClass($std)->willThrow(new InvalidArgumentException())->shouldBeCalled();
         $resourceClassResolverProphecy->isResourceClass(Dummy::class)->willReturn(true)->shouldBeCalled();
         $resourceClassResolverProphecy->isResourceClass(\stdClass::class)->willReturn(false)->shouldBeCalled();
 
@@ -70,6 +68,7 @@ class AbstractItemNormalizerTest extends TestCase
         $this->assertFalse($normalizer->supportsNormalization($std));
         $this->assertTrue($normalizer->supportsDenormalization($dummy, Dummy::class));
         $this->assertFalse($normalizer->supportsDenormalization($std, \stdClass::class));
+        $this->assertTrue($normalizer->hasCacheableSupportsMethod());
     }
 
     public function testNormalize()
@@ -359,12 +358,11 @@ class AbstractItemNormalizerTest extends TestCase
         ], Dummy::class);
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage Expected IRI or nested document for attribute "relatedDummy", "integer" given.
-     */
     public function testBadRelationType()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Expected IRI or nested document for attribute "relatedDummy", "integer" given.');
+
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create(Dummy::class, [])->willReturn(
             new PropertyNameCollection(['relatedDummy'])
@@ -403,12 +401,11 @@ class AbstractItemNormalizerTest extends TestCase
         $normalizer->denormalize(['relatedDummy' => 22], Dummy::class);
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage Nested documents for attribute "relatedDummy" are not allowed. Use IRIs instead.
-     */
     public function testInnerDocumentNotAllowed()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Nested documents for attribute "relatedDummy" are not allowed. Use IRIs instead.');
+
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create(Dummy::class, [])->willReturn(
             new PropertyNameCollection(['relatedDummy'])
@@ -447,12 +444,11 @@ class AbstractItemNormalizerTest extends TestCase
         $normalizer->denormalize(['relatedDummy' => ['foo' => 'bar']], Dummy::class);
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage The type of the "foo" attribute must be "float", "integer" given.
-     */
     public function testBadType()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The type of the "foo" attribute must be "float", "integer" given.');
+
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create(Dummy::class, [])->willReturn(
             new PropertyNameCollection(['foo'])
@@ -514,12 +510,11 @@ class AbstractItemNormalizerTest extends TestCase
         $normalizer->denormalize(['foo' => 42], Dummy::class, 'jsonfoo');
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage The type of the key "a" must be "int", "string" given.
-     */
     public function testDenormalizeBadKeyType()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The type of the key "a" must be "int", "string" given.');
+
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create(Dummy::class, [])->willReturn(
             new PropertyNameCollection(['relatedDummies'])
@@ -694,12 +689,11 @@ class AbstractItemNormalizerTest extends TestCase
         $normalizer->denormalize(['relatedDummy' => 1], Dummy::class, 'jsonld');
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\InvalidArgumentException
-     * @expectedExceptionMessage Expected IRI or nested document for attribute "relatedDummy", "integer" given.
-     */
     public function testDoNotDenormalizeRelationWithPlainIdWhenPlainIdentifiersAreNotAllowed()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Expected IRI or nested document for attribute "relatedDummy", "integer" given.');
+
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create(Dummy::class, [])->willReturn(
             new PropertyNameCollection(['relatedDummy'])

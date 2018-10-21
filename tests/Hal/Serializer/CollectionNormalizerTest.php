@@ -34,6 +34,7 @@ class CollectionNormalizerTest extends TestCase
         $this->assertTrue($normalizer->supportsNormalization(new \ArrayObject(), CollectionNormalizer::FORMAT));
         $this->assertFalse($normalizer->supportsNormalization([], 'xml'));
         $this->assertFalse($normalizer->supportsNormalization(new \ArrayObject(), 'xml'));
+        $this->assertTrue($normalizer->hasCacheableSupportsMethod());
     }
 
     public function testNormalizeApiSubLevel()
@@ -55,24 +56,24 @@ class CollectionNormalizerTest extends TestCase
         $this->assertEquals(
             [
                 '_links' => [
-                    'self' => '/?page=3',
-                    'first' => '/?page=1',
-                    'last' => '/?page=7',
-                    'prev' => '/?page=2',
-                    'next' => '/?page=4',
+                    'self' => ['href' => '/?page=3'],
+                    'first' => ['href' => '/?page=1'],
+                    'last' => ['href' => '/?page=7'],
+                    'prev' => ['href' => '/?page=2'],
+                    'next' => ['href' => '/?page=4'],
                     'item' => [
-                            '/me',
-                        ],
+                        '/me',
+                    ],
                 ],
                 '_embedded' => [
-                        'item' => [
-                            [
-                                '_links' => [
-                                        'self' => '/me',
-                                    ],
-                                'name' => 'Kévin',
+                    'item' => [
+                        [
+                            '_links' => [
+                                'self' => '/me',
                             ],
+                            'name' => 'Kévin',
                         ],
+                    ],
                 ],
                 'totalItems' => 1312,
                 'itemsPerPage' => 12,
@@ -86,9 +87,9 @@ class CollectionNormalizerTest extends TestCase
         $this->assertEquals(
             [
                 '_links' => [
-                    'self' => '/?page=3',
-                    'prev' => '/?page=2',
-                    'next' => '/?page=4',
+                    'self' => ['href' => '/?page=3'],
+                    'prev' => ['href' => '/?page=2'],
+                    'next' => ['href' => '/?page=4'],
                     'item' => [
                         '/me',
                     ],

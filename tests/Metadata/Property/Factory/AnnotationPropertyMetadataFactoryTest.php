@@ -83,16 +83,15 @@ class AnnotationPropertyMetadataFactoryTest extends TestCase
             [$propertyReaderProphecy, null, 'description'],
             [$getterReaderProphecy, $decoratedThrowNotFoundProphecy, 'description'],
             [$setterReaderProphecy, $decoratedThrowNotFoundProphecy, 'description'],
-            [$setterReaderProphecy, $decoratedReturnProphecy, 'Hi'],
+            [$setterReaderProphecy, $decoratedReturnProphecy, 'description'],
         ];
     }
 
-    /**
-     * @expectedException \ApiPlatform\Core\Exception\PropertyNotFoundException
-     * @expectedExceptionMessage Property "foo" of class "\DoNotExist" not found.
-     */
     public function testClassNotFound()
     {
+        $this->expectException(PropertyNotFoundException::class);
+        $this->expectExceptionMessage('Property "foo" of class "\\DoNotExist" not found.');
+
         $factory = new AnnotationPropertyMetadataFactory($this->prophesize(Reader::class)->reveal());
         $factory->create('\DoNotExist', 'foo');
     }

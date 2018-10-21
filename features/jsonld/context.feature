@@ -18,7 +18,7 @@ Feature: JSON-LD contexts generation
     Then the response status code should be 200
     And the response should be in JSON
     And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
-    And the JSON should be equal to:
+    And the JSON should be a superset of:
     """
     {
         "@context": {
@@ -27,7 +27,10 @@ Feature: JSON-LD contexts generation
             "description": "https://schema.org/description",
             "dummy": "Dummy/dummy",
             "dummyBoolean": "Dummy/dummyBoolean",
-            "dummyDate": "Dummy/dummyDate",
+            "dummyDate": {
+              "@id": "Dummy/dummyDate",
+              "@type": "@id"
+            },
             "dummyFloat": "Dummy/dummyFloat",
             "dummyPrice": "Dummy/dummyPrice",
             "relatedDummy": {
@@ -39,6 +42,7 @@ Feature: JSON-LD contexts generation
                 "@type": "@id"
             },
             "jsonData": "Dummy/jsonData",
+            "arrayData": "Dummy/arrayData",
             "nameConverted": "Dummy/nameConverted",
             "id": "Dummy/id",
             "name": "http://schema.org/name",

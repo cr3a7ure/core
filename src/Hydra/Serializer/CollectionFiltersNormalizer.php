@@ -17,9 +17,9 @@ use ApiPlatform\Core\Api\FilterCollection;
 use ApiPlatform\Core\Api\FilterInterface;
 use ApiPlatform\Core\Api\FilterLocatorTrait;
 use ApiPlatform\Core\Api\ResourceClassResolverInterface;
-use ApiPlatform\Core\JsonLd\Serializer\JsonLdContextTrait;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use Psr\Container\ContainerInterface;
+use Symfony\Component\Serializer\Normalizer\CacheableSupportsMethodInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
@@ -28,9 +28,8 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
  *
  * @author Samuel ROZE <samuel.roze@gmail.com>
  */
-final class CollectionFiltersNormalizer implements NormalizerInterface, NormalizerAwareInterface
+final class CollectionFiltersNormalizer implements NormalizerInterface, NormalizerAwareInterface, CacheableSupportsMethodInterface
 {
-    use JsonLdContextTrait;
     use FilterLocatorTrait;
 
     private $collectionNormalizer;
@@ -62,6 +61,14 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
     /**
      * {@inheritdoc}
      */
+    public function hasCacheableSupportsMethod(): bool
+    {
+        return $this->collectionNormalizer instanceof CacheableSupportsMethodInterface && $this->collectionNormalizer->hasCacheableSupportsMethod();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function normalize($object, $format = null, array $context = [])
     {
         $data = $this->collectionNormalizer->normalize($object, $format, $context);
@@ -84,7 +91,7 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
         }
 
         $requestParts = parse_url($context['request_uri'] ?? '');
-        if (!is_array($requestParts)) {
+        if (!\is_array($requestParts)) {
             return $data;
         }
 
@@ -115,11 +122,7 @@ final class CollectionFiltersNormalizer implements NormalizerInterface, Normaliz
     /**
      * Returns the content of the Hydra search property.
      *
-     * @param string            $resourceClass
-     * @param array             $parts
      * @param FilterInterface[] $filters
-     *
-     * @return array
      */
     public function getSearch(string $resourceClass, array $parts, array $filters): array
     {

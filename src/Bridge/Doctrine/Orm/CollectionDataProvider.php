@@ -13,10 +13,11 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Doctrine\Orm;
 
+use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\ContextAwareQueryCollectionExtensionInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryCollectionExtensionInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Extension\QueryResultCollectionExtensionInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGenerator;
-use ApiPlatform\Core\DataProvider\CollectionDataProviderInterface;
+use ApiPlatform\Core\DataProvider\ContextAwareCollectionDataProviderInterface;
 use ApiPlatform\Core\DataProvider\RestrictedDataProviderInterface;
 use ApiPlatform\Core\Exception\RuntimeException;
 use Doctrine\Common\Persistence\ManagerRegistry;
@@ -26,23 +27,23 @@ use Doctrine\Common\Persistence\ManagerRegistry;
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Samuel ROZE <samuel.roze@gmail.com>
+ * @final
  */
-class CollectionDataProvider implements CollectionDataProviderInterface, RestrictedDataProviderInterface
+class CollectionDataProvider implements ContextAwareCollectionDataProviderInterface, RestrictedDataProviderInterface
 {
     private $managerRegistry;
     private $collectionExtensions;
 
     /**
-     * @param ManagerRegistry                     $managerRegistry
-     * @param QueryCollectionExtensionInterface[] $collectionExtensions
+     * @param QueryCollectionExtensionInterface[]|ContextAwareQueryCollectionExtensionInterface[] $collectionExtensions
      */
-    public function __construct(ManagerRegistry $managerRegistry, array $collectionExtensions = [])
+    public function __construct(ManagerRegistry $managerRegistry, /* iterable */ $collectionExtensions = [])
     {
         $this->managerRegistry = $managerRegistry;
         $this->collectionExtensions = $collectionExtensions;
     }
 
-    public function supports(string $resourceClass, string $operationName = null): bool
+    public function supports(string $resourceClass, string $operationName = null, array $context = []): bool
     {
         return null !== $this->managerRegistry->getManagerForClass($resourceClass);
     }
@@ -52,7 +53,7 @@ class CollectionDataProvider implements CollectionDataProviderInterface, Restric
      *
      * @throws RuntimeException
      */
-    public function getCollection(string $resourceClass, string $operationName = null)
+    public function getCollection(string $resourceClass, string $operationName = null, array $context = [])
     {
         $manager = $this->managerRegistry->getManagerForClass($resourceClass);
 
@@ -64,10 +65,10 @@ class CollectionDataProvider implements CollectionDataProviderInterface, Restric
         $queryBuilder = $repository->createQueryBuilder('o');
         $queryNameGenerator = new QueryNameGenerator();
         foreach ($this->collectionExtensions as $extension) {
-            $extension->applyToCollection($queryBuilder, $queryNameGenerator, $resourceClass, $operationName);
+            $extension->applyToCollection($queryBuilder, $queryNameGenerator, $resourceClass, $operationName, $context);
 
-            if ($extension instanceof QueryResultCollectionExtensionInterface && $extension->supportsResult($resourceClass, $operationName)) {
-                return $extension->getResult($queryBuilder, $resourceClass, $operationName);
+            if ($extension instanceof QueryResultCollectionExtensionInterface && $extension->supportsResult($resourceClass, $operationName, $context)) {
+                return $extension->getResult($queryBuilder, $resourceClass, $operationName, $context);
             }
         }
 

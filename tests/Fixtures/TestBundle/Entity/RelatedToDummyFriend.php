@@ -22,7 +22,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 /**
  * Related To Dummy Friend represent an association table for a manytomany relation.
  *
- * @ApiResource(attributes={"normalization_context"={"groups": {"fakemanytomany"}}, "filters"={"related_to_dummy_friend.name"}})
+ * @ApiResource(attributes={"normalization_context"={"groups"={"fakemanytomany"}}, "filters"={"related_to_dummy_friend.name"}})
  * @ORM\Entity
  */
 class RelatedToDummyFriend
@@ -36,6 +36,14 @@ class RelatedToDummyFriend
      * @Groups({"fakemanytomany", "friends"})
      */
     private $name;
+
+    /**
+     * @var string|null The dummy description
+     *
+     * @ORM\Column(nullable=true)
+     * @Groups({"fakemanytomany", "friends"})
+     */
+    private $description;
 
     /**
      * @ORM\Id
@@ -62,6 +70,22 @@ class RelatedToDummyFriend
     public function getName()
     {
         return $this->name;
+    }
+
+    /**
+     * @return null|string
+     */
+    public function getDescription()
+    {
+        return $this->description;
+    }
+
+    /**
+     * @param null|string $description
+     */
+    public function setDescription($description)
+    {
+        $this->description = $description;
     }
 
     /**

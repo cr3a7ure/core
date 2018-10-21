@@ -32,7 +32,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Samuel ROZE <samuel.roze@gmail.com>
  */
-final class PaginationExtension implements QueryResultCollectionExtensionInterface
+final class PaginationExtension implements ContextAwareQueryResultCollectionExtensionInterface
 {
     private $managerRegistry;
     private $requestStack;
@@ -70,8 +70,12 @@ final class PaginationExtension implements QueryResultCollectionExtensionInterfa
     /**
      * {@inheritdoc}
      */
-    public function applyToCollection(QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $resourceClass, string $operationName = null)
+    public function applyToCollection(QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $resourceClass = null, string $operationName = null, array $context = [])
     {
+        if (null === $resourceClass) {
+            throw new InvalidArgumentException('The "$resourceClass" parameter must not be null');
+        }
+
         $request = $this->requestStack->getCurrentRequest();
         if (null === $request) {
             return;
@@ -89,15 +93,27 @@ final class PaginationExtension implements QueryResultCollectionExtensionInterfa
         }
 
         if ($resourceMetadata->getCollectionOperationAttribute($operationName, 'pagination_client_items_per_page', $this->clientItemsPerPage, true)) {
+            $maxItemsPerPage = $resourceMetadata->getCollectionOperationAttribute($operationName, 'maximum_items_per_page', $this->maximumItemPerPage, true);
+
             $itemsPerPage = (int) $this->getPaginationParameter($request, $this->itemsPerPageParameterName, $itemsPerPage);
-            $itemsPerPage = (null !== $this->maximumItemPerPage && $itemsPerPage >= $this->maximumItemPerPage ? $this->maximumItemPerPage : $itemsPerPage);
+            $itemsPerPage = (null !== $maxItemsPerPage && $itemsPerPage >= $maxItemsPerPage ? $maxItemsPerPage : $itemsPerPage);
         }
 
-        if (0 >= $itemsPerPage) {
-            throw new InvalidArgumentException('Item per page parameter should not be less than or equal to 0');
+        if (0 > $itemsPerPage) {
+            throw new InvalidArgumentException('Item per page parameter should not be less than 0');
         }
 
-        $firstResult = ($this->getPaginationParameter($request, $this->pageParameterName, 1) - 1) * $itemsPerPage;
+        $page = (int) $this->getPaginationParameter($request, $this->pageParameterName, 1);
+
+        if (1 > $page) {
+            throw new InvalidArgumentException('Page should not be less than 1');
+        }
+
+        if (0 === $itemsPerPage && 1 < $page) {
+            throw new InvalidArgumentException('Page should not be greater than 1 if itemsPerPage is equal to 0');
+        }
+
+        $firstResult = ($page - 1) * $itemsPerPage;
         if ($request->attributes->get('_graphql')) {
             $collectionArgs = $request->attributes->get('_graphql_collections_args', []);
             if (isset($collectionArgs[$resourceClass]['after'])) {
@@ -115,7 +131,7 @@ final class PaginationExtension implements QueryResultCollectionExtensionInterfa
     /**
      * {@inheritdoc}
      */
-    public function supportsResult(string $resourceClass, string $operationName = null): bool
+    public function supportsResult(string $resourceClass, string $operationName = null, array $context = []): bool
     {
         $request = $this->requestStack->getCurrentRequest();
         if (null === $request) {
@@ -130,23 +146,9 @@ final class PaginationExtension implements QueryResultCollectionExtensionInterfa
     /**
      * {@inheritdoc}
      */
-    public function getResult(QueryBuilder $queryBuilder/*, string $resourceClass, string $operationName = null*/)
+    public function getResult(QueryBuilder $queryBuilder, string $resourceClass = null, string $operationName = null, array $context = [])
     {
-        $resourceClass = $operationName = null;
-
-        if (func_num_args() >= 2) {
-            $resourceClass = func_get_arg(1);
-        } else {
-            @trigger_error(sprintf('Method %s() will have a 2nd `string $resourceClass` argument in version 3.0. Not defining it is deprecated since 2.2.', __METHOD__), E_USER_DEPRECATED);
-        }
-
-        if (func_num_args() >= 3) {
-            $operationName = func_get_arg(2);
-        } else {
-            @trigger_error(sprintf('Method %s() will have a 3rd `string $operationName = null` argument in version 3.0. Not defining it is deprecated since 2.2.', __METHOD__), E_USER_DEPRECATED);
-        }
-
-        $doctrineOrmPaginator = new DoctrineOrmPaginator($queryBuilder, $this->useFetchJoinCollection($queryBuilder));
+        $doctrineOrmPaginator = new DoctrineOrmPaginator($queryBuilder, $this->useFetchJoinCollection($queryBuilder, $resourceClass, $operationName));
         $doctrineOrmPaginator->setUseOutputWalkers($this->useOutputWalkers($queryBuilder));
 
         $resourceMetadata = null === $resourceClass ? null : $this->resourceMetadataFactory->create($resourceClass);
@@ -195,22 +197,24 @@ final class PaginationExtension implements QueryResultCollectionExtensionInterfa
      * Determines whether the Paginator should fetch join collections, if the root entity uses composite identifiers it should not.
      *
      * @see https://github.com/doctrine/doctrine2/issues/2910
-     *
-     * @param QueryBuilder $queryBuilder
-     *
-     * @return bool
      */
-    private function useFetchJoinCollection(QueryBuilder $queryBuilder): bool
+    private function useFetchJoinCollection(QueryBuilder $queryBuilder, string $resourceClass = null, string $operationName = null): bool
     {
-        return !QueryChecker::hasRootEntityWithCompositeIdentifier($queryBuilder, $this->managerRegistry);
+        if (QueryChecker::hasRootEntityWithCompositeIdentifier($queryBuilder, $this->managerRegistry)) {
+            return false;
+        }
+
+        if (null === $resourceClass) {
+            return true;
+        }
+
+        $resourceMetadata = $this->resourceMetadataFactory->create($resourceClass);
+
+        return  $resourceMetadata->getCollectionOperationAttribute($operationName, 'pagination_fetch_join_collection', true, true);
     }
 
     /**
      * Determines whether output walkers should be used.
-     *
-     * @param QueryBuilder $queryBuilder
-     *
-     * @return bool
      */
     private function useOutputWalkers(QueryBuilder $queryBuilder): bool
     {
