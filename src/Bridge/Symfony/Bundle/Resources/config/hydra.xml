@@ -14,6 +14,8 @@
             <argument type="service" id="api_platform.router" />
             <argument type="service" id="api_platform.subresource_operation_factory" />
             <argument type="service" id="api_platform.name_converter" on-invalid="ignore" />
+            <argument type="service" id="api_platform.iri_converter" on-invalid="ignore" />
+            <argument type="service" id="api_platform.hydra.normalizer.collection_filters" />
 
             <tag name="serializer.normalizer" priority="32" />
         </service>

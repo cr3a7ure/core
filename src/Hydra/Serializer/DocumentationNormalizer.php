@@ -25,14 +25,15 @@ use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use ApiPlatform\Core\Metadata\Property\SubresourceMetadata;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
-use Symfony\Component\PropertyInfo\Type;
+use ApiPlatform\Core\Operation\Factory\SubresourceOperationFactoryInterface;
 use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\CacheableSupportsMethodInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
-use ApiPlatform\Core\Api\IriConverterInterface;
+use Symfony\Component\PropertyInfo\Type;
+use ApiPlatform\Core\Bridge\Symfony\Routing\IriConverter;
+// use ApiPlatform\Core\Api\IriConverterInterface;
 use ApiPlatform\Core\Hydra\Serializer\CollectionFiltersNormalizer;
-
 
 /**
  * Creates a machine readable Hydra API documentation.
@@ -49,17 +50,12 @@ final class DocumentationNormalizer implements NormalizerInterface, CacheableSup
     private $resourceClassResolver;
     private $operationMethodResolver;
     private $urlGenerator;
-#<<<<<<< docminor
-#    private $iriConverter;
-#    private $collectionFiltersNormalizer;
+    private $subresourceOperationFactory;
+    private $nameConverter;
+    private $iriConverter;
+    private $collectionFiltersNormalizer;
 
-#    public function __construct(ResourceMetadataFactoryInterface $resourceMetadataFactory, PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, ResourceClassResolverInterface $resourceClassResolver, OperationMethodResolverInterface $operationMethodResolver, UrlGeneratorInterface $urlGenerator, IriConverterInterface $iriConverter, CollectionFiltersNormalizer $collectionFiltersNormalizer)
-#=======
-  #  private $subresourceOperationFactory;
-  #  private $nameConverter;
-
-   # public function __construct(ResourceMetadataFactoryInterface $resourceMetadataFactory, PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, ResourceClassResolverInterface $resourceClassResolver, OperationMethodResolverInterface $operationMethodResolver, UrlGeneratorInterface $urlGenerator, SubresourceOperationFactoryInterface $subresourceOperationFactory = null, NameConverterInterface $nameConverter = null)
-#>>>>>>> master
+    public function __construct(ResourceMetadataFactoryInterface $resourceMetadataFactory, PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, ResourceClassResolverInterface $resourceClassResolver, OperationMethodResolverInterface $operationMethodResolver, UrlGeneratorInterface $urlGenerator, SubresourceOperationFactoryInterface $subresourceOperationFactory = null, NameConverterInterface $nameConverter = null, IriConverter $iriConverter = null, CollectionFiltersNormalizer $collectionFiltersNormalizer = null)
     {
         $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->propertyNameCollectionFactory = $propertyNameCollectionFactory;
@@ -67,13 +63,10 @@ final class DocumentationNormalizer implements NormalizerInterface, CacheableSup
         $this->resourceClassResolver = $resourceClassResolver;
         $this->operationMethodResolver = $operationMethodResolver;
         $this->urlGenerator = $urlGenerator;
-#<<<<<<< docminor
-        $this->iriConverter = $iriConverter;
-        $this->collectionFiltersNormalizer = $collectionFiltersNormalizer;
-#=======
         $this->subresourceOperationFactory = $subresourceOperationFactory;
         $this->nameConverter = $nameConverter;
-#>>>>>>> master
+        $this->iriConverter = $iriConverter;
+        $this->collectionFiltersNormalizer = $collectionFiltersNormalizer;
     }
 
     /**
@@ -114,10 +107,13 @@ final class DocumentationNormalizer implements NormalizerInterface, CacheableSup
             $temp[0] = $this->collectionFiltersNormalizer->getSearch($resourceClass, ['path'=>$this->iriConverter->getIriFromResourceClass($resourceClass)], ['0'=>$currentFilters[$resourceFilters[0]]]);
         }
 
-        $entrypointProperties[] = [
+
+        $entrypointProperty = [
             '@type' => 'hydra:SupportedProperty',
             'hydra:property' => [
-                '@id' => $this->iriConverter->getIriFromResourceClass($resourceClass),//sprintf('#Entrypoint/%s', lcfirst($shortName)),
+                // '@id' => sprintf('#Entrypoint/%s', lcfirst($shortName)),
+                '@id' => $this->iriConverter->getIriFromResourceClass($resourceClass),
+                //sprintf('#Entrypoint/%s', lcfirst($shortName)),
                 '@type' => 'hydra:Link',
                 'domain' => '#Entrypoint',
                 'rdfs:label' => "The collection of $shortName resources",
@@ -232,18 +228,26 @@ final class DocumentationNormalizer implements NormalizerInterface, CacheableSup
             $hydraOperations[] = $this->getHydraOperation($resourceClass, $resourceMetadata, $operationName, $operation, $prefixedShortName, $collection ? OperationType::COLLECTION : OperationType::ITEM);
         }
 
-        foreach ($this->propertyNameCollectionFactory->create($resourceClass, $this->getPropertyNameCollectionFactoryContext($resourceMetadata)) as $propertyName) {
-            $propertyMetadata = $this->propertyMetadataFactory->create($resourceClass, $propertyName);
-
-            if (!$propertyMetadata->hasSubresource()) {
-                continue;
+        if (null !== $this->subresourceOperationFactory) {
+            foreach ($this->subresourceOperationFactory->create($resourceClass) as $operationId => $operation) {
+                $subresourceMetadata = $this->resourceMetadataFactory->create($operation['resource_class']);
+                $propertyMetadata = $this->propertyMetadataFactory->create(end($operation['identifiers'])[1], $operation['property']);
+                $hydraOperations[] = $this->getHydraOperation($resourceClass, $subresourceMetadata, $operation['route_name'], $operation, "#{$subresourceMetadata->getShortName()}", OperationType::SUBRESOURCE, $propertyMetadata->getSubresource());
             }
-
-            $subresourceMetadata = $this->resourceMetadataFactory->create($propertyMetadata->getSubresource()->getResourceClass());
-            $prefixedShortName = "#{$subresourceMetadata->getShortName()}";
-
-            $hydraOperations[] = $this->getHydraOperation($resourceClass, $subresourceMetadata, $operationName, $operation, $prefixedShortName, OperationType::SUBRESOURCE, $propertyMetadata->getSubresource());
         }
+
+        // foreach ($this->propertyNameCollectionFactory->create($resourceClass, $this->getPropertyNameCollectionFactoryContext($resourceMetadata)) as $propertyName) {
+        //     $propertyMetadata = $this->propertyMetadataFactory->create($resourceClass, $propertyName);
+
+        //     if (!$propertyMetadata->hasSubresource()) {
+        //         continue;
+        //     }
+
+        //     $subresourceMetadata = $this->resourceMetadataFactory->create($propertyMetadata->getSubresource()->getResourceClass());
+        //     $prefixedShortName = "#{$subresourceMetadata->getShortName()}";
+
+        //     $hydraOperations[] = $this->getHydraOperation($resourceClass, $subresourceMetadata, $operationName, $operation, $prefixedShortName, OperationType::SUBRESOURCE, $propertyMetadata->getSubresource());
+        // }
 
         return $hydraOperations;
     }
@@ -420,6 +424,8 @@ final class DocumentationNormalizer implements NormalizerInterface, CacheableSup
                 }
                 break;
         }
+
+        return null;
     }
 
     /**
@@ -509,17 +515,9 @@ final class DocumentationNormalizer implements NormalizerInterface, CacheableSup
      */
     private function getProperty(PropertyMetadata $propertyMetadata, string $propertyName, string $prefixedShortName, string $shortName): array
     {
-        if (!is_null($propertyMetadata->getvocabType())) {
-            $propType = [$propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',$propertyMetadata->getvocabType()];
-        } else {
-            $propType = [
-                $propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',
-                $propertyMetadata->getIri() ?? ''
-            ];
-        }
         $propertyData = [
-            '@id' => "vocab:#$shortName/$propertyName",
-            '@type' => $propType,
+            '@id' => $propertyMetadata->getIri() ?? "#$shortName/$propertyName",
+            '@type' => $propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',
             'rdfs:label' => $propertyName,
             'domain' => $prefixedShortName,
         ];
@@ -529,6 +527,21 @@ final class DocumentationNormalizer implements NormalizerInterface, CacheableSup
         if (null !== $type && !$type->isCollection() && (null !== $className = $type->getClassName()) && $this->resourceClassResolver->isResourceClass($className)) {
             $propertyData['owl:maxCardinality'] = 1;
         }
+
+        // if (!is_null($propertyMetadata->getvocabType())) {
+        //     $propType = [$propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',$propertyMetadata->getvocabType()];
+        // } else {
+        //     $propType = [
+        //         $propertyMetadata->isReadableLink() ? 'rdf:Property' : 'hydra:Link',
+        //         $propertyMetadata->getIri() ?? ''
+        //     ];
+        // }
+        // $propertyData = [
+        //     '@id' => "vocab:#$shortName/$propertyName",
+        //     '@type' => $propType,
+        //     'rdfs:label' => $propertyName,
+        //     'domain' => $prefixedShortName,
+        // ];
 
         $property = [
             '@type' => 'hydra:SupportedProperty',

@@ -33,7 +33,7 @@ final class ResourceMetadata
     private $attributes;
 
 
-    public function __construct(string $shortName = null, string $description = null, string $iri = null, string $type = null, array $itemOperations = null, array $collectionOperations = null, array $attributes = null)
+    public function __construct(string $shortName = null, string $description = null, string $iri = null, string $type = null, array $itemOperations = null, array $collectionOperations = null, array $attributes = null,array $subresourceOperations = null, array $graphql = null)
     {
         $this->shortName = $shortName;
         $this->description = $description;
