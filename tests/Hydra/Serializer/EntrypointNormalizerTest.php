@@ -51,7 +51,7 @@ class EntrypointNormalizerTest extends TestCase
         $entrypoint = new Entrypoint($collection);
 
         $factoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
-        $factoryProphecy->create(Dummy::class)->willReturn(new ResourceMetadata('Dummy', null, null, null, ['get']))->shouldBeCalled();
+        $factoryProphecy->create(Dummy::class)->willReturn(new ResourceMetadata('Dummy', null, null, null, null, ['get']))->shouldBeCalled();
 
         $iriConverterProphecy = $this->prophesize(IriConverterInterface::class);
         $iriConverterProphecy->getIriFromResourceClass(Dummy::class)->willReturn('/api/dummies')->shouldBeCalled();

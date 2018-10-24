@@ -176,7 +176,7 @@ class ValidateListenerTest extends TestCase
 
     private function createEventObject($expectedValidationGroups, $data, bool $receive = true): array
     {
-        $resourceMetadata = new ResourceMetadata(null, null, null, [
+        $resourceMetadata = new ResourceMetadata(null, null, null, null, [
             'create' => ['validation_groups' => $expectedValidationGroups],
         ]);
 

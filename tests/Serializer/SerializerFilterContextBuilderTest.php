@@ -44,6 +44,7 @@ class SerializerFilterContextBuilderTest extends TestCase
             null,
             null,
             null,
+            null,
             ['get' => ['filters' => ['dummy_group.group', 'dummy_group.search', 'dummy_group.nonexistent']]]
         );
 
@@ -81,6 +82,7 @@ class SerializerFilterContextBuilderTest extends TestCase
         ];
 
         $resourceMetadata = new ResourceMetadata(
+            null,
             null,
             null,
             null,
@@ -126,6 +128,7 @@ class SerializerFilterContextBuilderTest extends TestCase
             null,
             null,
             null,
+            null,
             ['get' => []]
         );
 
@@ -158,6 +161,7 @@ class SerializerFilterContextBuilderTest extends TestCase
         ];
 
         $resourceMetadata = new ResourceMetadata(
+            null,
             null,
             null,
             null,

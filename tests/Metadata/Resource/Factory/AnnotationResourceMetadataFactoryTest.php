@@ -40,6 +40,7 @@ class AnnotationResourceMetadataFactoryTest extends TestCase
         $this->assertEquals($expectedShortName, $metadata->getShortName());
         $this->assertEquals($expectedDescription, $metadata->getDescription());
         $this->assertEquals('http://example.com', $metadata->getIri());
+        $this->assertEquals('http://example.com', $metadata->getType());
         $this->assertEquals(['foo' => ['bar' => true]], $metadata->getItemOperations());
         $this->assertEquals(['baz' => ['tab' => false]], $metadata->getCollectionOperations());
         $this->assertEquals(['sub' => ['bus' => false]], $metadata->getSubresourceOperations());
@@ -53,6 +54,7 @@ class AnnotationResourceMetadataFactoryTest extends TestCase
             'shortName' => 'shortName',
             'description' => 'description',
             'iri' => 'http://example.com',
+            'type' => 'http://example.com',
             'itemOperations' => ['foo' => ['bar' => true]],
             'collectionOperations' => ['baz' => ['tab' => false]],
             'subresourceOperations' => ['sub' => ['bus' => false]],

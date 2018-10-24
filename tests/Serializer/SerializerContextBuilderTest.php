@@ -37,6 +37,7 @@ class SerializerContextBuilderTest extends TestCase
             null,
             null,
             null,
+            null,
             [],
             [],
             [

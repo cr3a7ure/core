@@ -66,6 +66,10 @@ class ResourceMetadataTest extends TestCase
         $this->assertNotSame($metadata, $newMetadata);
         $this->assertSame('foo:bar', $newMetadata->getIri());
 
+        $newMetadata = $metadata->withType('foo:bar');
+        $this->assertNotSame($metadata, $newMetadata);
+        $this->assertEquals('foo:bar', $newMetadata->getType());
+
         $newMetadata = $metadata->withItemOperations(['a' => ['b' => 'c']]);
         $this->assertNotSame($metadata, $newMetadata);
         $this->assertSame(['a' => ['b' => 'c']], $newMetadata->getItemOperations());
