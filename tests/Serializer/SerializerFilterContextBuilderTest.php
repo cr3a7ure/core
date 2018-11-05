@@ -36,6 +36,8 @@ class SerializerFilterContextBuilderTest extends TestCase
 
         $attributes = [
             'resource_class' => DummyGroup::class,
+            'input_class' => DummyGroup::class,
+            'output_class' => DummyGroup::class,
             'collection_operation_name' => 'get',
         ];
 
@@ -78,6 +80,8 @@ class SerializerFilterContextBuilderTest extends TestCase
 
         $attributes = [
             'resource_class' => DummyGroup::class,
+            'input_class' => DummyGroup::class,
+            'output_class' => DummyGroup::class,
             'item_operation_name' => 'put',
         ];
 
@@ -120,6 +124,8 @@ class SerializerFilterContextBuilderTest extends TestCase
 
         $attributes = [
             'resource_class' => DummyGroup::class,
+            'input_class' => DummyGroup::class,
+            'output_class' => DummyGroup::class,
             'collection_operation_name' => 'get',
         ];
 
@@ -155,6 +161,8 @@ class SerializerFilterContextBuilderTest extends TestCase
 
         $attributes = [
             'resource_class' => DummyGroup::class,
+            'input_class' => DummyGroup::class,
+            'output_class' => DummyGroup::class,
             'collection_operation_name' => 'get',
             'receive' => true,
             'persist' => true,
