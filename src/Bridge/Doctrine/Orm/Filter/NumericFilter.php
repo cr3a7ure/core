@@ -66,6 +66,16 @@ class NumericFilter extends AbstractContextAwareFilter
                 'type' => $this->getType((string) $this->getDoctrineFieldType($property, $resourceClass)),
                 'required' => false,
             ];
+            $filterParameterNames = [$property, $property.'[]'];
+
+            foreach ($filterParameterNames as $filterParameterName) {
+                $description[$filterParameterName] = [
+                    'property' => $property,
+                    'type' => $this->getType((string) $this->getDoctrineFieldType($property, $resourceClass)),
+                    'required' => false,
+                    'is_collection' => '[]' === substr($filterParameterName, -2),
+                ];
+            }
         }
 
         return $description;
@@ -99,9 +109,19 @@ class NumericFilter extends AbstractContextAwareFilter
             return;
         }
 
-        if (!is_numeric($value)) {
+        if (!is_numeric($value) && (!\is_array($value) || !$this->isNumericArray($value))) {
             $this->logger->notice('Invalid filter ignored', [
                 'exception' => new InvalidArgumentException(sprintf('Invalid numeric value for "%s::%s" property', $resourceClass, $property)),
+            ]);
+
+            return;
+        }
+
+        $values = $this->normalizeValues((array) $value);
+
+        if (empty($values)) {
+            $this->logger->notice('Invalid filter ignored', [
+                'exception' => new InvalidArgumentException(sprintf('At least one value is required, multiple values should be in "%1$s[]=firstvalue&%1$s[]=secondvalue" format', $property)),
             ]);
 
             return;
@@ -127,6 +147,15 @@ class NumericFilter extends AbstractContextAwareFilter
         $queryBuilder
             ->andWhere(sprintf('%s.%s = :%s', $alias, $field, $valueParameter))
             ->setParameter($valueParameter, $value, (string) $this->getDoctrineFieldType($property, $resourceClass));
+        if (1 === \count($values)) {
+            $queryBuilder
+                ->andWhere(sprintf('%s.%s = :%s', $alias, $field, $valueParameter))
+                ->setParameter($valueParameter, $values[0], (string) $this->getDoctrineFieldType($property, $resourceClass));
+        } else {
+            $queryBuilder
+                ->andWhere(sprintf('%s.%s IN (:%s)', $alias, $field, $valueParameter))
+                ->setParameter($valueParameter, $values);
+        }
     }
 
     /**
@@ -138,5 +167,28 @@ class NumericFilter extends AbstractContextAwareFilter
         $metadata = $this->getNestedMetadata($resourceClass, $propertyParts['associations']);
 
         return isset(self::DOCTRINE_NUMERIC_TYPES[(string) $metadata->getTypeOfField($propertyParts['field'])]);
+
+    }
+
+    protected function isNumericArray(array $values): bool
+    {
+        foreach ($values as $value) {
+            if (!is_numeric($value)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function normalizeValues(array $values): array
+    {
+        foreach ($values as $key => $value) {
+            if (!\is_int($key)) {
+                unset($values[$key]);
+            }
+        }
+
+        return array_values($values);
     }
 }
