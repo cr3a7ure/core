@@ -4,6 +4,9 @@
 /composer.lock
 /phpunit.xml
 /vendor/
+/tests/Fixtures/app/var/*
 /tests/Fixtures/app/cache/*
 /tests/Fixtures/app/logs/*
 composer.phar
+/swagger.json
+/swagger.yaml

@@ -37,13 +37,16 @@ use ApiPlatform\Core\Exception\InvalidArgumentException;
  *     @Attribute("filters", type="string[]"),
  *     @Attribute("graphql", type="array"),
  *     @Attribute("hydraContext", type="array"),
- *     @Attribute("inputClass", type="string"),
+ *     @Attribute("inputClass", type="mixed"),
  *     @Attribute("iri", type="string"),
  *     @Attribute("itemOperations", type="array"),
  *     @Attribute("maximumItemsPerPage", type="int"),
+ *     @Attribute("mercure", type="mixed"),
+ *     @Attribute("messenger", type="bool"),
  *     @Attribute("normalizationContext", type="array"),
+ *     @Attribute("openapiContext", type="array"),
  *     @Attribute("order", type="array"),
- *     @Attribute("outputClass", type="string"),
+ *     @Attribute("outputClass", type="mixed"),
  *     @Attribute("paginationClientEnabled", type="bool"),
  *     @Attribute("paginationClientItemsPerPage", type="bool"),
  *     @Attribute("paginationClientPartial", type="bool"),
@@ -183,6 +186,20 @@ final class ApiResource
     /**
      * @see https://github.com/Haehnchen/idea-php-annotation-plugin/issues/112
      *
+     * @var mixed
+     */
+    private $mercure;
+
+    /**
+     * @see https://github.com/Haehnchen/idea-php-annotation-plugin/issues/112
+     *
+     * @var bool
+     */
+    private $messenger;
+
+    /**
+     * @see https://github.com/Haehnchen/idea-php-annotation-plugin/issues/112
+     *
      * @var array
      */
     private $normalizationContext;
@@ -274,16 +291,23 @@ final class ApiResource
     /**
      * @see https://github.com/Haehnchen/idea-php-annotation-plugin/issues/112
      *
-     * @var string
+     * @var string|false
      */
     private $inputClass;
 
     /**
      * @see https://github.com/Haehnchen/idea-php-annotation-plugin/issues/112
      *
-     * @var string
+     * @var string|false
      */
     private $outputClass;
+
+    /**
+     * @see https://github.com/Haehnchen/idea-php-annotation-plugin/issues/112
+     *
+     * @var array
+     */
+    private $openapiContext;
 
     /**
      * @throws InvalidArgumentException

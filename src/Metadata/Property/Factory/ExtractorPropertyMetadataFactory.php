@@ -78,7 +78,6 @@ final class ExtractorPropertyMetadataFactory implements PropertyMetadataFactoryI
     /**
      * Returns the metadata from the decorated factory if available or throws an exception.
      *
-     *
      * @throws PropertyNotFoundException
      */
     private function handleNotFound(PropertyMetadata $parentPropertyMetadata = null, string $resourceClass, string $property): PropertyMetadata
@@ -126,7 +125,7 @@ final class ExtractorPropertyMetadataFactory implements PropertyMetadataFactoryI
     /**
      * Creates a SubresourceMetadata.
      *
-     * @param bool|null|array  $subresource      the subresource metadata coming from XML or YAML
+     * @param bool|array|null  $subresource      the subresource metadata coming from XML or YAML
      * @param PropertyMetadata $propertyMetadata the current property metadata
      *
      * @return SubresourceMetadata|null

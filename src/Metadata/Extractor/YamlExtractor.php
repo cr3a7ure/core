@@ -121,7 +121,6 @@ final class YamlExtractor extends AbstractExtractor
     /**
      * Transforms a YAML attribute's value in PHP value.
      *
-     *
      * @throws InvalidArgumentException
      *
      * @return bool|string|null
