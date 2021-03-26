@@ -34,8 +34,12 @@ class TraceableChainSubresourceDataCollectorTest extends TestCase
         $result = $dataProvider->getProvidersResponse();
         $this->assertCount(\count($expected), $result);
         $this->assertEmpty(array_filter($result, function ($key) {
+            if (\PHP_VERSION_ID >= 80000) {
+                return !str_starts_with($key, SubresourceDataProviderInterface::class.'@anonymous');
+            }
+
             return 0 !== strpos($key, 'class@anonymous');
-        }, ARRAY_FILTER_USE_KEY));
+        }, \ARRAY_FILTER_USE_KEY));
         $this->assertSame($expected, array_values($result));
         $this->assertSame($context, $dataProvider->getContext());
     }
@@ -52,8 +56,12 @@ class TraceableChainSubresourceDataCollectorTest extends TestCase
         $result = $dataProvider->getProvidersResponse();
         $this->assertCount(\count($expected), $result);
         $this->assertEmpty(array_filter($result, function ($key) {
+            if (\PHP_VERSION_ID >= 80000) {
+                return !str_starts_with($key, SubresourceDataProviderInterface::class.'@anonymous');
+            }
+
             return 0 !== strpos($key, 'class@anonymous');
-        }, ARRAY_FILTER_USE_KEY));
+        }, \ARRAY_FILTER_USE_KEY));
         $this->assertSame($expected, array_values($result));
         $this->assertSame($context, $dataProvider->getContext());
     }
@@ -64,13 +72,14 @@ class TraceableChainSubresourceDataCollectorTest extends TestCase
             new class() implements SubresourceDataProviderInterface {
                 public function getSubresource(string $resourceClass, array $identifiers, array $context, string $operationName = null)
                 {
+                    return null;
                 }
             },
             ['some_context'],
             [],
         ];
 
-        yield  'Empty ChainSubresourceDataProvider' => [
+        yield 'Empty ChainSubresourceDataProvider' => [
             new ChainSubresourceDataProvider([]),
             ['some_context'],
             [],
@@ -81,6 +90,7 @@ class TraceableChainSubresourceDataCollectorTest extends TestCase
                 new class() implements SubresourceDataProviderInterface, RestrictedDataProviderInterface {
                     public function getSubresource(string $resourceClass, array $identifiers, array $context, string $operationName = null)
                     {
+                        return null;
                     }
 
                     public function supports(string $resourceClass, string $operationName = null, array $context = []): bool
@@ -91,6 +101,7 @@ class TraceableChainSubresourceDataCollectorTest extends TestCase
                 new class() implements SubresourceDataProviderInterface, RestrictedDataProviderInterface {
                     public function getSubresource(string $resourceClass, array $identifiers, array $context, string $operationName = null)
                     {
+                        return null;
                     }
 
                     public function supports(string $resourceClass, string $operationName = null, array $context = []): bool
@@ -101,6 +112,7 @@ class TraceableChainSubresourceDataCollectorTest extends TestCase
                 new class() implements SubresourceDataProviderInterface {
                     public function getSubresource(string $resourceClass, array $identifiers, array $context, string $operationName = null)
                     {
+                        return null;
                     }
                 },
             ]),
@@ -122,6 +134,7 @@ class TraceableChainSubresourceDataCollectorTest extends TestCase
                 new class() implements SubresourceDataProviderInterface {
                     public function getSubresource(string $resourceClass, array $identifiers, array $context, string $operationName = null)
                     {
+                        return null;
                     }
                 },
             ]),

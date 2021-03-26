@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\JsonApi\EventListener;
 
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 /**
  * @see http://jsonapi.org/format/#fetching-pagination
@@ -24,14 +24,14 @@ use Symfony\Component\HttpKernel\Event\GetResponseEvent;
  */
 final class TransformPaginationParametersListener
 {
-    public function onKernelRequest(GetResponseEvent $event)
+    public function onKernelRequest(RequestEvent $event): void
     {
         $request = $event->getRequest();
+        $pageParameter = $request->query->all()['page'] ?? null;
 
         if (
-            'jsonapi' !== $request->getRequestFormat() ||
-            null === ($pageParameter = $request->query->get('page')) ||
-            !\is_array($pageParameter)
+            !\is_array($pageParameter) ||
+            'jsonapi' !== $request->getRequestFormat()
         ) {
             return;
         }

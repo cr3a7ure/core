@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Doctrine\Orm\Util;
 
-use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 
 /**
@@ -62,11 +62,11 @@ trait EagerLoadingTrait
     }
 
     /**
-     * Checkes if the class has an associationMapping with FETCH=EAGER.
+     * Checks if the class has an associationMapping with FETCH=EAGER.
      *
      * @param array $checked array cache of tested metadata classes
      */
-    private function hasFetchEagerAssociation(EntityManager $em, ClassMetadataInfo $classMetadata, array &$checked = []): bool
+    private function hasFetchEagerAssociation(EntityManagerInterface $em, ClassMetadataInfo $classMetadata, array &$checked = []): bool
     {
         $checked[] = $classMetadata->name;
 

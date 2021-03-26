@@ -72,9 +72,9 @@ abstract class AbstractSearchFilter extends AbstractFilter implements ConstantSc
                 continue;
             }
 
-            $property = null === $this->nameConverter ? $property : $this->nameConverter->normalize($property);
+            $property = null === $this->nameConverter ? $property : $this->nameConverter->normalize($property, $resourceClass, null, $context);
             $nestedPath = $this->getNestedFieldPath($resourceClass, $property);
-            $nestedPath = null === $nestedPath || null === $this->nameConverter ? $nestedPath : $this->nameConverter->normalize($nestedPath);
+            $nestedPath = null === $nestedPath || null === $this->nameConverter ? $nestedPath : $this->nameConverter->normalize($nestedPath, $resourceClass, null, $context);
 
             $searches[] = $this->getQuery($property, $values, $nestedPath);
         }
@@ -83,7 +83,7 @@ abstract class AbstractSearchFilter extends AbstractFilter implements ConstantSc
             return $clauseBody;
         }
 
-        return array_merge($clauseBody, [
+        return array_merge_recursive($clauseBody, [
             'bool' => [
                 'must' => $searches,
             ],
@@ -176,7 +176,7 @@ abstract class AbstractSearchFilter extends AbstractFilter implements ConstantSc
             if (
                 null !== $value
                 && Type::BUILTIN_TYPE_INT === $type->getBuiltinType()
-                && false === filter_var($value, FILTER_VALIDATE_INT)
+                && false === filter_var($value, \FILTER_VALIDATE_INT)
             ) {
                 return false;
             }

@@ -16,7 +16,7 @@ namespace ApiPlatform\Core\Serializer;
 use ApiPlatform\Core\Api\ResourceClassResolverInterface;
 use ApiPlatform\Core\DataProvider\PaginatorInterface;
 use ApiPlatform\Core\DataProvider\PartialPaginatorInterface;
-use ApiPlatform\Core\Exception\InvalidArgumentException;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use Symfony\Component\Serializer\Normalizer\CacheableSupportsMethodInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareTrait;
@@ -37,15 +37,17 @@ abstract class AbstractCollectionNormalizer implements NormalizerInterface, Norm
     /**
      * This constant must be overridden in the child class.
      */
-    const FORMAT = 'to-override';
+    public const FORMAT = 'to-override';
 
     protected $resourceClassResolver;
     protected $pageParameterName;
+    protected $resourceMetadataFactory;
 
-    public function __construct(ResourceClassResolverInterface $resourceClassResolver, string $pageParameterName)
+    public function __construct(ResourceClassResolverInterface $resourceClassResolver, string $pageParameterName, ResourceMetadataFactoryInterface $resourceMetadataFactory = null)
     {
         $this->resourceClassResolver = $resourceClassResolver;
         $this->pageParameterName = $pageParameterName;
+        $this->resourceMetadataFactory = $resourceMetadataFactory;
     }
 
     /**
@@ -71,21 +73,13 @@ abstract class AbstractCollectionNormalizer implements NormalizerInterface, Norm
      */
     public function normalize($object, $format = null, array $context = [])
     {
-        if (isset($context['api_sub_level'])) {
+        if (!isset($context['resource_class']) || isset($context['api_sub_level'])) {
             return $this->normalizeRawCollection($object, $format, $context);
         }
 
-        try {
-            $resourceClass = $this->resourceClassResolver->getResourceClass($object, $context['resource_class'] ?? null, true);
-        } catch (InvalidArgumentException $e) {
-            if (!isset($context['resource_class'])) {
-                return $this->normalizeRawCollection($object, $format, $context);
-            }
-
-            throw $e;
-        }
-        $data = [];
+        $resourceClass = $this->resourceClassResolver->getResourceClass($object, $context['resource_class']);
         $context = $this->initContext($resourceClass, $context);
+        $data = [];
 
         return array_merge_recursive(
             $data,
@@ -96,6 +90,8 @@ abstract class AbstractCollectionNormalizer implements NormalizerInterface, Norm
 
     /**
      * Normalizes a raw collection (not API resources).
+     *
+     * @param string|null $format
      */
     protected function normalizeRawCollection($object, $format = null, array $context = []): array
     {

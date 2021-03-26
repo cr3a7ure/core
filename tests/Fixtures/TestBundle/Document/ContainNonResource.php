@@ -16,31 +16,41 @@ namespace ApiPlatform\Core\Tests\Fixtures\TestBundle\Document;
 use ApiPlatform\Core\Annotation\ApiResource;
 use ApiPlatform\Core\Tests\Fixtures\NotAResource;
 use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 /**
  * Resource linked to a standard object.
  *
  * @ODM\Document
- * @ApiResource
+ *
+ * @ApiResource(
+ *     normalizationContext={
+ *         "groups"={"contain_non_resource"},
+ *     },
+ * )
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
 class ContainNonResource
 {
     /**
-     * @var mixed
+     * @ODM\Id(strategy="INCREMENT", type="int")
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @Groups("contain_non_resource")
      */
     public $id;
 
     /**
-     * @var self
+     * @var ContainNonResource
+     *
+     * @Groups("contain_non_resource")
      */
     public $nested;
 
     /**
      * @var NotAResource
+     *
+     * @Groups("contain_non_resource")
      */
     public $notAResource;
 }

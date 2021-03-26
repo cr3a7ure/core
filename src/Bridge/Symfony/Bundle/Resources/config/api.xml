@@ -41,6 +41,9 @@
             <argument>%api_platform.graphql.enabled%</argument>
             <argument>%api_platform.enable_entrypoint%</argument>
             <argument>%api_platform.enable_docs%</argument>
+            <argument>%api_platform.graphql.graphiql.enabled%</argument>
+            <argument>%api_platform.graphql.graphql_playground.enabled%</argument>
+            <argument type="service" id="api_platform.identifiers_extractor.cached"></argument>
 
             <tag name="routing.loader" />
         </service>
@@ -49,6 +52,7 @@
 
         <service id="api_platform.router" class="ApiPlatform\Core\Bridge\Symfony\Routing\Router" public="false">
             <argument type="service" id="router" />
+            <argument>%api_platform.url_generation_strategy%</argument>
         </service>
 
         <service id="api_platform.iri_converter" class="ApiPlatform\Core\Bridge\Symfony\Routing\IriConverter" public="false">
@@ -61,12 +65,17 @@
             <argument type="service" id="api_platform.identifiers_extractor.cached" />
             <argument type="service" id="api_platform.subresource_data_provider" on-invalid="ignore" />
             <argument type="service" id="api_platform.identifier.converter" on-invalid="ignore" />
+            <argument type="service" id="api_platform.resource_class_resolver" />
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" />
         </service>
         <service id="ApiPlatform\Core\Api\IriConverterInterface" alias="api_platform.iri_converter" />
 
         <service id="api_platform.formats_provider" class="ApiPlatform\Core\Api\FormatsProvider">
-            <argument type="service" id="api_platform.metadata.resource.metadata_factory"></argument>
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" />
             <argument>%api_platform.formats%</argument>
+        </service>
+
+        <service id="ApiPlatform\Core\Api\OperationAwareFormatsProviderInterface" alias="api_platform.formats_provider">
         </service>
 
         <!-- Serializer -->
@@ -82,7 +91,12 @@
             <argument type="service" id="api_platform.serializer.context_builder.filter.inner" />
         </service>
 
-        <service id="api_platform.serializer.property_filter" class="ApiPlatform\Core\Serializer\Filter\PropertyFilter" public="false" abstract="true" />
+        <service id="api_platform.serializer.property_filter" class="ApiPlatform\Core\Serializer\Filter\PropertyFilter" public="false" abstract="true">
+            <argument key="$parameterName">properties</argument>
+            <argument key="$overrideDefaultProperties">false</argument>
+            <argument key="$whitelist">null</argument>
+            <argument key="$nameConverter" type="service" id="api_platform.name_converter" on-invalid="ignore" />
+        </service>
         <service id="ApiPlatform\Core\Serializer\Filter\PropertyFilter" alias="api_platform.serializer.property_filter" />
 
         <service id="api_platform.serializer.group_filter" class="ApiPlatform\Core\Serializer\Filter\GroupFilter" public="false" abstract="true" />
@@ -98,8 +112,13 @@
             <argument type="service" id="serializer.mapping.class_metadata_factory" on-invalid="ignore" />
             <argument type="service" id="api_platform.item_data_provider" on-invalid="ignore" />
             <argument>%api_platform.allow_plain_identifiers%</argument>
+            <argument>null</argument>
+            <argument type="tagged" tag="api_platform.data_transformer" on-invalid="ignore" />
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" on-invalid="ignore" />
+            <argument type="service" id="api_platform.security.resource_access_checker" on-invalid="ignore" />
 
-            <tag name="serializer.normalizer" />
+            <!-- Run before serializer.normalizer.json_serializable -->
+            <tag name="serializer.normalizer" priority="-895" />
         </service>
 
         <!-- Resources Operations path resolver -->
@@ -120,13 +139,9 @@
             <argument type="service" id="api_platform.path_segment_name_generator" />
         </service>
 
-        <service id="api_platform.operation_path_resolver.underscore" class="ApiPlatform\Core\PathResolver\UnderscoreOperationPathResolver" public="false">
-            <deprecated>The "%service_id%" service is deprecated since API Platform 2.1 and will be removed in 3.0. Use "api_platform.path_segment_name_generator.underscore" instead.</deprecated>
-        </service>
+        <service id="api_platform.operation_path_resolver.underscore" class="ApiPlatform\Core\PathResolver\UnderscoreOperationPathResolver" public="false" />
 
-        <service id="api_platform.operation_path_resolver.dash" class="ApiPlatform\Core\PathResolver\DashOperationPathResolver" public="false">
-            <deprecated>The "%service_id%" service is deprecated since API Platform 2.1 and will be removed in 3.0. Use "api_platform.path_segment_name_generator.dash" instead.</deprecated>
-        </service>
+        <service id="api_platform.operation_path_resolver.dash" class="ApiPlatform\Core\PathResolver\DashOperationPathResolver" public="false" />
 
         <!-- Path name generator -->
 
@@ -135,27 +150,31 @@
 
         <!-- Event listeners -->
 
-        <!-- kernel.request priority must be < 8 to be executed after the Firewall -->
         <service id="api_platform.listener.request.add_format" class="ApiPlatform\Core\EventListener\AddFormatListener">
             <argument type="service" id="api_platform.negotiator" />
-            <argument type="service" id="api_platform.formats_provider"></argument>
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" />
+            <argument>%api_platform.formats%</argument>
 
-            <tag name="kernel.event_listener" event="kernel.request" method="onKernelRequest" priority="7" />
+            <tag name="kernel.event_listener" event="kernel.request" method="onKernelRequest" priority="28" />
         </service>
 
+        <!-- kernel.request priority must be < 8 to be executed after the Firewall -->
         <service id="api_platform.listener.request.read" class="ApiPlatform\Core\EventListener\ReadListener">
             <argument type="service" id="api_platform.collection_data_provider" />
             <argument type="service" id="api_platform.item_data_provider" />
             <argument type="service" id="api_platform.subresource_data_provider" />
             <argument type="service" id="api_platform.serializer.context_builder" />
             <argument type="service" id="api_platform.identifier.converter" />
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" />
 
             <tag name="kernel.event_listener" event="kernel.request" method="onKernelRequest" priority="4" />
         </service>
 
         <service id="api_platform.listener.view.write" class="ApiPlatform\Core\EventListener\WriteListener">
             <argument type="service" id="api_platform.data_persister" />
-            <argument type="service" id="api_platform.iri_converter" on-invalid="null" />
+            <argument type="service" id="api_platform.iri_converter" />
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" />
+            <argument type="service" id="api_platform.resource_class_resolver" />
 
             <tag name="kernel.event_listener" event="kernel.view" method="onKernelView" priority="32" />
         </service>
@@ -163,7 +182,7 @@
         <service id="api_platform.listener.request.deserialize" class="ApiPlatform\Core\EventListener\DeserializeListener">
             <argument type="service" id="api_platform.serializer" />
             <argument type="service" id="api_platform.serializer.context_builder" />
-            <argument type="service" id="api_platform.formats_provider" />
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" />
 
             <tag name="kernel.event_listener" event="kernel.request" method="onKernelRequest" priority="2" />
         </service>
@@ -171,6 +190,7 @@
         <service id="api_platform.listener.view.serialize" class="ApiPlatform\Core\EventListener\SerializeListener">
             <argument type="service" id="api_platform.serializer" />
             <argument type="service" id="api_platform.serializer.context_builder" />
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" />
 
             <tag name="kernel.event_listener" event="kernel.view" method="onKernelView" priority="16" />
         </service>
@@ -183,6 +203,7 @@
         <service id="api_platform.listener.exception.validation" class="ApiPlatform\Core\Bridge\Symfony\Validator\EventListener\ValidationExceptionListener">
             <argument type="service" id="api_platform.serializer" />
             <argument>%api_platform.error_formats%</argument>
+            <argument>%api_platform.exception_to_status%</argument>
 
             <tag name="kernel.event_listener" event="kernel.exception" method="onKernelException" />
         </service>
@@ -190,6 +211,8 @@
         <service id="api_platform.listener.exception" class="ApiPlatform\Core\EventListener\ExceptionListener">
             <argument>api_platform.action.exception</argument>
             <argument type="service" id="logger" on-invalid="null" />
+            <argument>false</argument>
+            <argument type="service" id="exception_listener" on-invalid="null" />
 
             <tag name="kernel.event_listener" event="kernel.exception" method="onKernelException" priority="-96" />
             <tag name="monolog.logger" channel="request" />
@@ -205,6 +228,8 @@
         <service id="api_platform.action.put_item" alias="api_platform.action.placeholder" public="true" />
         <service id="api_platform.action.delete_item" alias="api_platform.action.placeholder" public="true" />
         <service id="api_platform.action.get_subresource" alias="api_platform.action.placeholder" public="true" />
+        <service id="api_platform.action.not_found" class="ApiPlatform\Core\Action\NotFoundAction" public="true" />
+        <service id="ApiPlatform\Core\Action\NotFoundAction" alias="api_platform.action.not_found" public="true" />
 
         <service id="api_platform.action.entrypoint" class="ApiPlatform\Core\Action\EntrypointAction" public="true">
             <argument type="service" id="api_platform.metadata.resource.name_collection_factory" />
@@ -215,13 +240,16 @@
             <argument>%api_platform.title%</argument>
             <argument>%api_platform.description%</argument>
             <argument>%api_platform.version%</argument>
-            <argument type="service" id="api_platform.formats_provider" />
+            <argument>null</argument>
+            <argument on-invalid="null">%api_platform.swagger.versions%</argument>
+            <argument type="service" id="api_platform.openapi.factory" on-invalid="null"></argument>
         </service>
 
         <service id="api_platform.action.exception" class="ApiPlatform\Core\Action\ExceptionAction" public="true">
             <argument type="service" id="api_platform.serializer" />
             <argument>%api_platform.error_formats%</argument>
             <argument>%api_platform.exception_to_status%</argument>
+            <argument type="service" id="api_platform.metadata.resource.metadata_factory" />
         </service>
 
         <!-- Identifiers -->
@@ -239,6 +267,7 @@
             <argument type="service" id="api_platform.property_accessor" />
             <argument type="service" id="api_platform.resource_class_resolver" />
         </service>
+        <service id="ApiPlatform\Core\Api\IdentifiersExtractorInterface" alias="api_platform.identifiers_extractor.cached" />
 
         <service id="api_platform.identifier.converter" class="ApiPlatform\Core\Identifier\IdentifierConverter" public="false">
             <argument type="service" id="api_platform.identifiers_extractor.cached" />
@@ -247,11 +276,11 @@
         </service>
 
         <service id="api_platform.identifier.integer" class="ApiPlatform\Core\Identifier\Normalizer\IntegerDenormalizer" public="false">
-            <tag name="api_platform.identifier.denormalizer" />
+            <tag name="api_platform.identifier.denormalizer" priority="-100" />
         </service>
 
         <service id="api_platform.identifier.date_normalizer" class="ApiPlatform\Core\Identifier\Normalizer\DateTimeIdentifierDenormalizer" public="false">
-            <tag name="api_platform.identifier.denormalizer" />
+            <tag name="api_platform.identifier.denormalizer" priority="-100" />
         </service>
 
         <!-- Subresources -->
@@ -261,6 +290,7 @@
             <argument type="service" id="api_platform.metadata.property.name_collection_factory" />
             <argument type="service" id="api_platform.metadata.property.metadata_factory" />
             <argument type="service" id="api_platform.path_segment_name_generator" />
+            <argument type="service" id="api_platform.identifiers_extractor.cached" />
         </service>
 
         <service id="api_platform.subresource_operation_factory.cached" class="ApiPlatform\Core\Operation\Factory\CachedSubresourceOperationFactory" decorates="api_platform.subresource_operation_factory" decoration-priority="-10" public="false">
@@ -280,6 +310,19 @@
 
         <service id="api_platform.cache.subresource_operation_factory" parent="cache.system" public="false">
             <tag name="cache.pool" />
+        </service>
+
+        <service id="api_platform.cache_warmer.cache_pool_clearer" class="ApiPlatform\Core\Bridge\Symfony\Bundle\CacheWarmer\CachePoolClearerCacheWarmer" public="false">
+            <argument type="service" id="cache.system_clearer" />
+            <argument type="collection">
+                <argument>api_platform.cache.metadata.property</argument>
+                <argument>api_platform.cache.metadata.resource</argument>
+                <argument>api_platform.cache.route_name_resolver</argument>
+                <argument>api_platform.cache.identifiers_extractor</argument>
+                <argument>api_platform.cache.subresource_operation_factory</argument>
+                <argument>api_platform.elasticsearch.cache.metadata.document</argument>
+            </argument>
+            <tag name="kernel.cache_warmer" priority="64" />
         </service>
     </services>
 

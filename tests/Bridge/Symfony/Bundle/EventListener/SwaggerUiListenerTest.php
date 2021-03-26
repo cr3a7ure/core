@@ -14,21 +14,24 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Tests\Bridge\Symfony\Bundle\EventListener;
 
 use ApiPlatform\Core\Bridge\Symfony\Bundle\EventListener\SwaggerUiListener;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 /**
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
 class SwaggerUiListenerTest extends TestCase
 {
+    use ProphecyTrait;
+
     /**
      * @dataProvider getParameters
      */
     public function testOnKernelRequest(Request $request, string $controller = null)
     {
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
         $eventProphecy->getRequest()->willReturn($request)->shouldBeCalled();
 
         $listener = new SwaggerUiListener();

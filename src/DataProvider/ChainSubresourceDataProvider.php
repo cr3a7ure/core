@@ -22,13 +22,17 @@ use ApiPlatform\Core\Exception\ResourceClassNotSupportedException;
  */
 final class ChainSubresourceDataProvider implements SubresourceDataProviderInterface
 {
-    /** @internal */
+    /**
+     * @var iterable<SubresourceDataProviderInterface>
+     *
+     * @internal
+     */
     public $dataProviders;
 
     /**
      * @param SubresourceDataProviderInterface[] $dataProviders
      */
-    public function __construct(/* iterable */ $dataProviders)
+    public function __construct(iterable $dataProviders)
     {
         $this->dataProviders = $dataProviders;
     }
@@ -46,7 +50,7 @@ final class ChainSubresourceDataProvider implements SubresourceDataProviderInter
 
                 return $dataProvider->getSubresource($resourceClass, $identifiers, $context, $operationName);
             } catch (ResourceClassNotSupportedException $e) {
-                @trigger_error(sprintf('Throwing a "%s" in a data provider is deprecated in favor of implementing "%s"', ResourceClassNotSupportedException::class, RestrictedDataProviderInterface::class), E_USER_DEPRECATED);
+                @trigger_error(sprintf('Throwing a "%s" in a data provider is deprecated in favor of implementing "%s"', ResourceClassNotSupportedException::class, RestrictedDataProviderInterface::class), \E_USER_DEPRECATED);
                 continue;
             }
         }

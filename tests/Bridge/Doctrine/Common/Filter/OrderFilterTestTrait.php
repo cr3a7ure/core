@@ -28,11 +28,25 @@ trait OrderFilterTestTrait
                 'property' => 'id',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[name]' => [
                 'property' => 'name',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
         ], $filter->getDescription($this->resourceClass));
     }
@@ -218,6 +232,62 @@ trait OrderFilterTestTrait
                     ],
                 ],
             ],
+            'nulls_always_first (asc)' => [
+                [
+                    'dummyDate' => [
+                        'nulls_comparison' => 'nulls_always_first',
+                    ],
+                    'name' => null,
+                ],
+                [
+                    'order' => [
+                        'dummyDate' => 'asc',
+                        'name' => 'desc',
+                    ],
+                ],
+            ],
+            'nulls_always_first (desc)' => [
+                [
+                    'dummyDate' => [
+                        'nulls_comparison' => 'nulls_always_first',
+                    ],
+                    'name' => null,
+                ],
+                [
+                    'order' => [
+                        'dummyDate' => 'desc',
+                        'name' => 'desc',
+                    ],
+                ],
+            ],
+            'nulls_always_last (asc)' => [
+                [
+                    'dummyDate' => [
+                        'nulls_comparison' => 'nulls_always_last',
+                    ],
+                    'name' => null,
+                ],
+                [
+                    'order' => [
+                        'dummyDate' => 'asc',
+                        'name' => 'desc',
+                    ],
+                ],
+            ],
+            'nulls_always_last (desc)' => [
+                [
+                    'dummyDate' => [
+                        'nulls_comparison' => 'nulls_always_last',
+                    ],
+                    'name' => null,
+                ],
+                [
+                    'order' => [
+                        'dummyDate' => 'desc',
+                        'name' => 'desc',
+                    ],
+                ],
+            ],
             'not having order should not throw a deprecation (select unchanged)' => [
                 [
                     'id' => null,
@@ -233,6 +303,26 @@ trait OrderFilterTestTrait
                 ],
                 [
                     'order' => ['relatedDummy.name' => 'ASC'],
+                ],
+            ],
+            'embedded' => [
+                [
+                    'embeddedDummy.dummyName' => 'ASC',
+                ],
+                [
+                    'order' => ['embeddedDummy.dummyName' => 'ASC'],
+                ],
+            ],
+            'embedded with nulls_comparison' => [
+                [
+                    'embeddedDummy.dummyName' => [
+                        'nulls_comparison' => 'nulls_largest',
+                    ],
+                ],
+                [
+                    'order' => [
+                        'embeddedDummy.dummyName' => 'ASC',
+                    ],
                 ],
             ],
         ];

@@ -18,6 +18,7 @@ use ApiPlatform\Core\DataProvider\RestrictedDataProviderInterface;
 use ApiPlatform\Core\DataProvider\SubresourceDataProviderInterface;
 use ApiPlatform\Core\Exception\ResourceClassNotSupportedException;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,6 +26,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ChainSubresourcedataProviderTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testGetSubresource()
     {
         $dummy = new Dummy();
@@ -107,7 +110,7 @@ class ChainSubresourcedataProviderTest extends TestCase
      * @group legacy
      * @expectedDeprecation Throwing a "ApiPlatform\Core\Exception\ResourceClassNotSupportedException" in a data provider is deprecated in favor of implementing "ApiPlatform\Core\DataProvider\RestrictedDataProviderInterface"
      */
-    public function testLegacyGetCollectionExeptions()
+    public function testLegacyGetCollectionExceptions()
     {
         $firstDataProvider = $this->prophesize(SubresourceDataProviderInterface::class);
         $firstDataProvider->getSubresource('notfound', ['id' => 1], [], 'get')->willThrow(ResourceClassNotSupportedException::class);

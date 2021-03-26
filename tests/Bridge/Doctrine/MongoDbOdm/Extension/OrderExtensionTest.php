@@ -17,18 +17,23 @@ use ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Extension\OrderExtension;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Document\Dummy;
-use Doctrine\Common\Persistence\ManagerRegistry;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use Doctrine\ODM\MongoDB\Aggregation\Builder;
 use Doctrine\ODM\MongoDB\Aggregation\Stage\Lookup;
 use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\TestCase;
 
 /**
+ * @group mongodb
+ *
  * @author Alan Poulain <contact@alanpoulain.eu>
  */
 class OrderExtensionTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testApplyToCollectionWithValidOrder()
     {
         $aggregationBuilderProphecy = $this->prophesize(Builder::class);
@@ -135,7 +140,7 @@ class OrderExtensionTest extends TestCase
         $classMetadataProphecy->hasAssociation('name')->shouldBeCalled()->willReturn(false);
         $classMetadataProphecy->getAssociationTargetClass('author')->shouldBeCalled()->willReturn(Dummy::class);
         $classMetadataProphecy->hasReference('author')->shouldBeCalled()->willReturn(true);
-        $classMetadataProphecy->getFieldMapping('author')->shouldBeCalled()->willReturn(['isOwningSide' => true]);
+        $classMetadataProphecy->getFieldMapping('author')->shouldBeCalled()->willReturn(['isOwningSide' => true, 'storeAs' => ClassMetadata::REFERENCE_STORE_AS_ID]);
 
         $resourceMetadataFactoryProphecy->create(Dummy::class)->shouldBeCalled()->willReturn(new ResourceMetadata(null, null, null, null, null, ['order' => ['author.name']]));
 

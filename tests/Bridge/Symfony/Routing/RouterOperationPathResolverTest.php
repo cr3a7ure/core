@@ -18,8 +18,8 @@ use ApiPlatform\Core\Bridge\Symfony\Routing\RouteNameGenerator;
 use ApiPlatform\Core\Bridge\Symfony\Routing\RouterOperationPathResolver;
 use ApiPlatform\Core\Exception\InvalidArgumentException;
 use ApiPlatform\Core\PathResolver\OperationPathResolverInterface;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
-use Prophecy\Argument;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
@@ -29,6 +29,8 @@ use Symfony\Component\Routing\RouterInterface;
  */
 class RouterOperationPathResolverTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testResolveOperationPath()
     {
         $routeCollection = new RouteCollection();

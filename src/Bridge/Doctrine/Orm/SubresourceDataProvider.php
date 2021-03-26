@@ -26,10 +26,11 @@ use ApiPlatform\Core\Exception\RuntimeException;
 use ApiPlatform\Core\Identifier\IdentifierConverterInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
-use Doctrine\Common\Persistence\ManagerRegistry;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * Subresource data provider for the Doctrine ORM.
@@ -48,11 +49,12 @@ final class SubresourceDataProvider implements SubresourceDataProviderInterface
      * @param QueryCollectionExtensionInterface[] $collectionExtensions
      * @param QueryItemExtensionInterface[]       $itemExtensions
      */
-    public function __construct(ManagerRegistry $managerRegistry, PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, /* iterable */ $collectionExtensions = [], /* iterable */ $itemExtensions = [])
+    public function __construct(ManagerRegistry $managerRegistry, PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, iterable $collectionExtensions = [], iterable $itemExtensions = [], ResourceMetadataFactoryInterface $resourceMetadataFactory = null)
     {
         $this->managerRegistry = $managerRegistry;
         $this->propertyNameCollectionFactory = $propertyNameCollectionFactory;
         $this->propertyMetadataFactory = $propertyMetadataFactory;
+        $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->collectionExtensions = $collectionExtensions;
         $this->itemExtensions = $itemExtensions;
     }
@@ -130,8 +132,16 @@ final class SubresourceDataProvider implements SubresourceDataProviderInterface
 
         $topQueryBuilder = $topQueryBuilder ?? $previousQueryBuilder;
 
-        list($identifier, $identifierResourceClass) = $context['identifiers'][$remainingIdentifiers - 1];
-        $previousAssociationProperty = $context['identifiers'][$remainingIdentifiers][0] ?? $context['property'];
+        if (\is_string(key($context['identifiers']))) {
+            $contextIdentifiers = array_keys($context['identifiers']);
+            $identifier = $contextIdentifiers[$remainingIdentifiers - 1];
+            $identifierResourceClass = $context['identifiers'][$identifier][0];
+            $previousAssociationProperty = $contextIdentifiers[$remainingIdentifiers] ?? $context['property'];
+        } else {
+            @trigger_error('Identifiers should match the convention introduced in ADR 0001-resource-identifiers, this behavior will be removed in 3.0.', \E_USER_DEPRECATED);
+            [$identifier, $identifierResourceClass] = $context['identifiers'][$remainingIdentifiers - 1];
+            $previousAssociationProperty = $context['identifiers'][$remainingIdentifiers][0] ?? $context['property'];
+        }
 
         $manager = $this->managerRegistry->getManagerForClass($identifierResourceClass);
 
@@ -142,9 +152,7 @@ final class SubresourceDataProvider implements SubresourceDataProviderInterface
         $classMetadata = $manager->getClassMetadata($identifierResourceClass);
 
         if (!$classMetadata instanceof ClassMetadataInfo) {
-            throw new RuntimeException(
-                "The class metadata for $identifierResourceClass must be an instance of ClassMetadataInfo."
-            );
+            throw new RuntimeException("The class metadata for $identifierResourceClass must be an instance of ClassMetadataInfo.");
         }
 
         $qb = $manager->createQueryBuilder();
@@ -200,11 +208,30 @@ final class SubresourceDataProvider implements SubresourceDataProviderInterface
                 ->from($identifierResourceClass, $alias);
         }
 
+        $isLeaf = 1 === $remainingIdentifiers;
+
         // Add where clause for identifiers
         foreach ($normalizedIdentifiers as $key => $value) {
             $placeholder = $queryNameGenerator->generateParameterName($key);
-            $qb->andWhere("$alias.$key = :$placeholder");
             $topQueryBuilder->setParameter($placeholder, $value, (string) $classMetadata->getTypeOfField($key));
+
+            // Optimization: add where clause for identifiers, but not via a WHERE ... IN ( ...subquery... ).
+            // Instead we use a direct identifier equality clause, to speed things up when dealing with large tables.
+            // We may do so if there is no more recursion levels from here, and if relation allows it.
+            $association = $classMetadata->hasAssociation($previousAssociationProperty) ? $classMetadata->getAssociationMapping($previousAssociationProperty) : [];
+            $oneToOneBidirectional = isset($association['inversedBy']) && ClassMetadataInfo::ONE_TO_ONE === $association['type'];
+            $oneToManyBidirectional = isset($association['mappedBy']) && ClassMetadataInfo::ONE_TO_MANY === $association['type'];
+            if ($isLeaf && $oneToOneBidirectional) {
+                $joinAlias = $queryNameGenerator->generateJoinAlias($association['inversedBy']);
+
+                return $previousQueryBuilder->innerJoin("$previousAlias.{$association['inversedBy']}", $joinAlias)
+                    ->andWhere("$joinAlias.$key = :$placeholder");
+            }
+            if ($isLeaf && $oneToManyBidirectional && \in_array($key, $classMetadata->getIdentifier(), true)) {
+                return $previousQueryBuilder->andWhere("IDENTITY($previousAlias) = :$placeholder");
+            }
+
+            $qb->andWhere("$alias.$key = :$placeholder");
         }
 
         // Recurse queries

@@ -13,9 +13,11 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\JsonApi\Serializer;
 
-use ApiPlatform\Core\Exception\InvalidArgumentException;
+use ApiPlatform\Core\Api\ResourceClassResolverInterface;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Serializer\AbstractCollectionNormalizer;
 use ApiPlatform\Core\Util\IriHelper;
+use Symfony\Component\Serializer\Exception\UnexpectedValueException;
 
 /**
  * Normalizes collections in the JSON API format.
@@ -26,34 +28,42 @@ use ApiPlatform\Core\Util\IriHelper;
  */
 final class CollectionNormalizer extends AbstractCollectionNormalizer
 {
-    const FORMAT = 'jsonapi';
+    public const FORMAT = 'jsonapi';
+
+    public function __construct(ResourceClassResolverInterface $resourceClassResolver, string $pageParameterName, ResourceMetadataFactoryInterface $resourceMetadataFactory)
+    {
+        parent::__construct($resourceClassResolver, $pageParameterName, $resourceMetadataFactory);
+    }
 
     /**
      * {@inheritdoc}
      */
     protected function getPaginationData($object, array $context = []): array
     {
-        list($paginator, $paginated, $currentPage, $itemsPerPage, $lastPage, $pageTotalItems, $totalItems) = $this->getPaginationConfig($object, $context);
-        $parsed = IriHelper::parseIri($context['request_uri'] ?? '/', $this->pageParameterName);
+        [$paginator, $paginated, $currentPage, $itemsPerPage, $lastPage, $pageTotalItems, $totalItems] = $this->getPaginationConfig($object, $context);
+        $parsed = IriHelper::parseIri($context['uri'] ?? '/', $this->pageParameterName);
+
+        $metadata = $this->resourceMetadataFactory->create($context['resource_class'] ?? '');
+        $urlGenerationStrategy = $metadata->getAttribute('url_generation_strategy');
 
         $data = [
             'links' => [
-                'self' => IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, $paginated ? $currentPage : null),
+                'self' => IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, $paginated ? $currentPage : null, $urlGenerationStrategy),
             ],
         ];
 
         if ($paginated) {
             if (null !== $lastPage) {
-                $data['links']['first'] = IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, 1.);
-                $data['links']['last'] = IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, $lastPage);
+                $data['links']['first'] = IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, 1., $urlGenerationStrategy);
+                $data['links']['last'] = IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, $lastPage, $urlGenerationStrategy);
             }
 
             if (1. !== $currentPage) {
-                $data['links']['prev'] = IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, $currentPage - 1.);
+                $data['links']['prev'] = IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, $currentPage - 1., $urlGenerationStrategy);
             }
 
             if (null !== $lastPage && $currentPage !== $lastPage || null === $lastPage && $pageTotalItems >= $itemsPerPage) {
-                $data['links']['next'] = IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, $currentPage + 1.);
+                $data['links']['next'] = IriHelper::createIri($parsed['parts'], $parsed['parameters'], $this->pageParameterName, $currentPage + 1., $urlGenerationStrategy);
             }
         }
 
@@ -72,7 +82,7 @@ final class CollectionNormalizer extends AbstractCollectionNormalizer
     /**
      * {@inheritdoc}
      *
-     * @throws InvalidArgumentException
+     * @throws UnexpectedValueException
      */
     protected function getItemsData($object, string $format = null, array $context = []): array
     {
@@ -82,15 +92,18 @@ final class CollectionNormalizer extends AbstractCollectionNormalizer
 
         foreach ($object as $obj) {
             $item = $this->normalizer->normalize($obj, $format, $context);
+            if (!\is_array($item)) {
+                throw new UnexpectedValueException('Expected item to be an array');
+            }
 
             if (!isset($item['data'])) {
-                throw new InvalidArgumentException('The JSON API document must contain a "data" key.');
+                throw new UnexpectedValueException('The JSON API document must contain a "data" key.');
             }
 
             $data['data'][] = $item['data'];
 
             if (isset($item['included'])) {
-                $data['included'] = array_values(array_unique(array_merge($data['included'] ?? [], $item['included']), SORT_REGULAR));
+                $data['included'] = array_values(array_unique(array_merge($data['included'] ?? [], $item['included']), \SORT_REGULAR));
             }
         }
 

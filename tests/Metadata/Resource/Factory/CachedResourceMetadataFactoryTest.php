@@ -17,6 +17,7 @@ use ApiPlatform\Core\Metadata\Resource\Factory\CachedResourceMetadataFactory;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheException;
 use Psr\Cache\CacheItemInterface;
@@ -27,6 +28,8 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 class CachedResourceMetadataFactoryTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testCreateWithItemHit()
     {
         $cacheItem = $this->prophesize(CacheItemInterface::class);
@@ -41,7 +44,6 @@ class CachedResourceMetadataFactoryTest extends TestCase
         $cachedResourceMetadataFactory = new CachedResourceMetadataFactory($cacheItemPool->reveal(), $decoratedResourceMetadataFactory->reveal());
         $resultedResourceMetadata = $cachedResourceMetadataFactory->create(Dummy::class);
 
-        $this->assertInstanceOf(ResourceMetadata::class, $resultedResourceMetadata);
         $this->assertEquals(new ResourceMetadata(null, 'Dummy.'), $resultedResourceMetadata);
     }
 
@@ -63,8 +65,6 @@ class CachedResourceMetadataFactoryTest extends TestCase
         $cachedResourceMetadataFactory = new CachedResourceMetadataFactory($cacheItemPool->reveal(), $decoratedResourceMetadataFactory->reveal());
         $resultedResourceMetadata = $cachedResourceMetadataFactory->create(Dummy::class);
 
-        $this->assertInstanceOf(ResourceMetadata::class, $resultedResourceMetadata);
-
         $expectedResult = new ResourceMetadata(null, 'Dummy.');
         $this->assertEquals($expectedResult, $resultedResourceMetadata);
         $this->assertEquals($expectedResult, $cachedResourceMetadataFactory->create(Dummy::class), 'Trigger the local cache');
@@ -75,16 +75,13 @@ class CachedResourceMetadataFactoryTest extends TestCase
         $decoratedResourceMetadataFactory = $this->prophesize(ResourceMetadataFactoryInterface::class);
         $decoratedResourceMetadataFactory->create(Dummy::class)->willReturn(new ResourceMetadata(null, 'Dummy.'))->shouldBeCalled();
 
-        $cacheException = $this->prophesize(CacheException::class);
-        $cacheException->willExtend(\Exception::class);
+        $cacheException = new class() extends \Exception implements CacheException {};
 
         $cacheItemPool = $this->prophesize(CacheItemPoolInterface::class);
-        $cacheItemPool->getItem($this->generateCacheKey())->willThrow($cacheException->reveal())->shouldBeCalled();
+        $cacheItemPool->getItem($this->generateCacheKey())->willThrow($cacheException)->shouldBeCalled();
 
         $cachedResourceMetadataFactory = new CachedResourceMetadataFactory($cacheItemPool->reveal(), $decoratedResourceMetadataFactory->reveal());
         $resultedResourceMetadata = $cachedResourceMetadataFactory->create(Dummy::class);
-
-        $this->assertInstanceOf(ResourceMetadata::class, $resultedResourceMetadata);
 
         $expectedResult = new ResourceMetadata(null, 'Dummy.');
         $this->assertEquals($expectedResult, $resultedResourceMetadata);

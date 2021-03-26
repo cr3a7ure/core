@@ -34,8 +34,12 @@ class TraceableChainCollectionDataCollectorTest extends TestCase
         $result = $dataProvider->getProvidersResponse();
         $this->assertCount(\count($expected), $result);
         $this->assertEmpty(array_filter($result, function ($key) {
+            if (\PHP_VERSION_ID >= 80000) {
+                return !str_starts_with($key, CollectionDataProviderInterface::class.'@anonymous');
+            }
+
             return 0 !== strpos($key, 'class@anonymous');
-        }, ARRAY_FILTER_USE_KEY));
+        }, \ARRAY_FILTER_USE_KEY));
         $this->assertSame($expected, array_values($result));
         $this->assertSame($context, $dataProvider->getContext());
     }
@@ -52,8 +56,12 @@ class TraceableChainCollectionDataCollectorTest extends TestCase
         $result = $dataProvider->getProvidersResponse();
         $this->assertCount(\count($expected), $result);
         $this->assertEmpty(array_filter($result, function ($key) {
+            if (\PHP_VERSION_ID >= 80000) {
+                return !str_starts_with($key, CollectionDataProviderInterface::class.'@anonymous');
+            }
+
             return 0 !== strpos($key, 'class@anonymous');
-        }, ARRAY_FILTER_USE_KEY));
+        }, \ARRAY_FILTER_USE_KEY));
         $this->assertSame($expected, array_values($result));
         $this->assertSame($context, $dataProvider->getContext());
     }
@@ -64,13 +72,14 @@ class TraceableChainCollectionDataCollectorTest extends TestCase
             new class() implements CollectionDataProviderInterface {
                 public function getCollection(string $resourceClass, string $operationName = null)
                 {
+                    return [];
                 }
             },
             ['some_context'],
             [],
         ];
 
-        yield  'Empty ChainCollectionDataProvider' => [
+        yield 'Empty ChainCollectionDataProvider' => [
             new ChainCollectionDataProvider([]),
             ['some_context'],
             [],
@@ -125,6 +134,7 @@ class TraceableChainCollectionDataCollectorTest extends TestCase
                 new class() implements CollectionDataProviderInterface {
                     public function getCollection(string $resourceClass, string $operationName = null)
                     {
+                        return [];
                     }
                 },
             ]),

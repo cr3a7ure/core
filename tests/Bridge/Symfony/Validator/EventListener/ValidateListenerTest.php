@@ -18,11 +18,12 @@ use ApiPlatform\Core\Bridge\Symfony\Validator\Exception\ValidationException;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\DummyEntity;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent;
+use Symfony\Component\HttpKernel\Event\ViewEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -34,24 +35,24 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  */
 class ValidateListenerTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testNotAnApiPlatformRequest()
     {
         $validatorProphecy = $this->prophesize(ValidatorInterface::class);
-        $validatorProphecy->validate()->shouldNotBeCalled();
+        $validatorProphecy->validate(Argument::cetera())->shouldNotBeCalled();
         $validator = $validatorProphecy->reveal();
 
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
-        $resourceMetadataFactoryProphecy->create()->shouldNotBeCalled();
         $resourceMetadataFactory = $resourceMetadataFactoryProphecy->reveal();
 
         $request = new Request();
         $request->setMethod('POST');
 
-        $event = $this->prophesize(GetResponseForControllerResultEvent::class);
-        $event->getRequest()->willReturn($request)->shouldBeCalled();
-
         $listener = new ValidateListener($validator, $resourceMetadataFactory);
-        $listener->onKernelView($event->reveal());
+
+        $event = new ViewEvent($this->prophesize(HttpKernelInterface::class)->reveal(), $request, HttpKernelInterface::MASTER_REQUEST, []);
+        $listener->onKernelView($event);
     }
 
     public function testValidatorIsCalled()
@@ -67,7 +68,7 @@ class ValidateListenerTest extends TestCase
         $containerProphecy = $this->prophesize(ContainerInterface::class);
         $containerProphecy->has(Argument::any())->shouldNotBeCalled();
 
-        list($resourceMetadataFactory, $event) = $this->createEventObject($expectedValidationGroups, $data);
+        [$resourceMetadataFactory, $event] = $this->createEventObject($expectedValidationGroups, $data);
 
         $validationViewListener = new ValidateListener($validator, $resourceMetadataFactory, $containerProphecy->reveal());
         $validationViewListener->onKernelView($event);
@@ -87,7 +88,7 @@ class ValidateListenerTest extends TestCase
             return $data instanceof DummyEntity ? $expectedValidationGroups : [];
         };
 
-        list($resourceMetadataFactory, $event) = $this->createEventObject($closure, $data);
+        [$resourceMetadataFactory, $event] = $this->createEventObject($closure, $data);
 
         $validationViewListener = new ValidateListener($validator, $resourceMetadataFactory);
         $validationViewListener->onKernelView($event);
@@ -102,7 +103,7 @@ class ValidateListenerTest extends TestCase
         $validatorProphecy->validate($data, null, ['a', 'b', 'c'])->willReturn($constraintViolationList)->shouldBeCalled();
         $validator = $validatorProphecy->reveal();
 
-        list($resourceMetadataFactory, $event) = $this->createEventObject('groups_builder', $data);
+        [$resourceMetadataFactory, $event] = $this->createEventObject('groups_builder', $data);
 
         $containerProphecy = $this->prophesize(ContainerInterface::class);
         $containerProphecy->has('groups_builder')->willReturn(true)->shouldBeCalled();
@@ -130,7 +131,7 @@ class ValidateListenerTest extends TestCase
         $containerProphecy = $this->prophesize(ContainerInterface::class);
         $containerProphecy->has('foo')->willReturn(false)->shouldBeCalled();
 
-        list($resourceMetadataFactory, $event) = $this->createEventObject('foo', $data);
+        [$resourceMetadataFactory, $event] = $this->createEventObject('foo', $data);
 
         $validationViewListener = new ValidateListener($validatorProphecy->reveal(), $resourceMetadataFactory, $containerProphecy->reveal());
         $validationViewListener->onKernelView($event);
@@ -145,7 +146,7 @@ class ValidateListenerTest extends TestCase
         $validatorProphecy->validate($data, null, $expectedValidationGroups)->shouldNotBeCalled();
         $validator = $validatorProphecy->reveal();
 
-        list($resourceMetadataFactory, $event) = $this->createEventObject($expectedValidationGroups, $data, false);
+        [$resourceMetadataFactory, $event] = $this->createEventObject($expectedValidationGroups, $data, false);
 
         $validationViewListener = new ValidateListener($validator, $resourceMetadataFactory);
         $validationViewListener->onKernelView($event);
@@ -168,7 +169,7 @@ class ValidateListenerTest extends TestCase
         $validatorProphecy->validate($data, null, $expectedValidationGroups)->willReturn($violations)->shouldBeCalled();
         $validator = $validatorProphecy->reveal();
 
-        list($resourceMetadataFactory, $event) = $this->createEventObject($expectedValidationGroups, $data);
+        [$resourceMetadataFactory, $event] = $this->createEventObject($expectedValidationGroups, $data);
 
         $validationViewListener = new ValidateListener($validator, $resourceMetadataFactory);
         $validationViewListener->onKernelView($event);
@@ -196,7 +197,7 @@ class ValidateListenerTest extends TestCase
         ]);
 
         $request->setMethod('POST');
-        $event = new GetResponseForControllerResultEvent($kernel, $request, HttpKernelInterface::MASTER_REQUEST, $data);
+        $event = new ViewEvent($kernel, $request, HttpKernelInterface::MASTER_REQUEST, $data);
 
         return [$resourceMetadataFactory, $event];
     }

@@ -17,13 +17,18 @@ use ApiPlatform\Core\Api\FormatsProvider;
 use ApiPlatform\Core\Api\OperationType;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @author Anthony GRASSIOT <antograssiot@free.fr>
+ *
+ * @group legacy
  */
 class FormatsProviderTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testNoResourceClass()
     {
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);

@@ -15,10 +15,11 @@ namespace ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Filter;
 
 use ApiPlatform\Core\Bridge\Doctrine\Common\PropertyHelperTrait;
 use ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\PropertyHelperTrait as MongoDbOdmPropertyHelperTrait;
-use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ODM\MongoDB\Aggregation\Builder;
+use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 
 /**
  * {@inheritdoc}
@@ -31,18 +32,20 @@ use Psr\Log\NullLogger;
  */
 abstract class AbstractFilter implements FilterInterface
 {
-    use PropertyHelperTrait;
     use MongoDbOdmPropertyHelperTrait;
+    use PropertyHelperTrait;
 
     protected $managerRegistry;
     protected $logger;
     protected $properties;
+    protected $nameConverter;
 
-    public function __construct(ManagerRegistry $managerRegistry, LoggerInterface $logger = null, array $properties = null)
+    public function __construct(ManagerRegistry $managerRegistry, LoggerInterface $logger = null, array $properties = null, NameConverterInterface $nameConverter = null)
     {
         $this->managerRegistry = $managerRegistry;
         $this->logger = $logger ?? new NullLogger();
         $this->properties = $properties;
+        $this->nameConverter = $nameConverter;
     }
 
     /**
@@ -51,7 +54,7 @@ abstract class AbstractFilter implements FilterInterface
     public function apply(Builder $aggregationBuilder, string $resourceClass, string $operationName = null, array &$context = [])
     {
         foreach ($context['filters'] as $property => $value) {
-            $this->filterProperty($property, $value, $aggregationBuilder, $resourceClass, $operationName, $context);
+            $this->filterProperty($this->denormalizePropertyName($property), $value, $aggregationBuilder, $resourceClass, $operationName, $context);
         }
     }
 
@@ -85,6 +88,24 @@ abstract class AbstractFilter implements FilterInterface
             return !$this->isPropertyNested($property, $resourceClass);
         }
 
-        return array_key_exists($property, $this->properties);
+        return \array_key_exists($property, $this->properties);
+    }
+
+    protected function denormalizePropertyName($property)
+    {
+        if (!$this->nameConverter instanceof NameConverterInterface) {
+            return $property;
+        }
+
+        return implode('.', array_map([$this->nameConverter, 'denormalize'], explode('.', (string) $property)));
+    }
+
+    protected function normalizePropertyName($property)
+    {
+        if (!$this->nameConverter instanceof NameConverterInterface) {
+            return $property;
+        }
+
+        return implode('.', array_map([$this->nameConverter, 'normalize'], explode('.', (string) $property)));
     }
 }

@@ -19,19 +19,24 @@ use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Metadata\Resource\ResourceNameCollection;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
-use Prophecy\Prophecy\ProphecyInterface;
+use Symfony\Bridge\PhpUnit\ExpectDeprecationTrait;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
+use Twig\Environment as TwigEnvironment;
 
 /**
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
 class SwaggerUiActionTest extends TestCase
 {
-    const SPEC = [
+    use ExpectDeprecationTrait;
+    use ProphecyTrait;
+
+    public const SPEC = [
         'paths' => [
             '/fs' => ['get' => ['operationId' => 'getFCollection']],
             '/fs/{id}' => ['get' => ['operationId' => 'getFItem']],
@@ -40,9 +45,11 @@ class SwaggerUiActionTest extends TestCase
 
     /**
      * @dataProvider getInvokeParameters
+     * @group legacy
      */
-    public function testInvoke(Request $request, ProphecyInterface $twigProphecy)
+    public function testInvoke(Request $request, $twigProphecy)
     {
+        $this->expectDeprecation('The use of "ApiPlatform\Core\Bridge\Symfony\Bundle\Action\SwaggerUiAction" is deprecated since API Platform 2.6, use "ApiPlatform\Core\Bridge\Symfony\Bundle\SwaggerUi\SwaggerUiAction" instead.');
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
         $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection(['Foo', 'Bar']))->shouldBeCalled();
 
@@ -67,7 +74,7 @@ class SwaggerUiActionTest extends TestCase
 
     public function getInvokeParameters()
     {
-        $twigCollectionProphecy = $this->prophesize(\Twig_Environment::class);
+        $twigCollectionProphecy = $this->prophesize(TwigEnvironment::class);
         $twigCollectionProphecy->render('@ApiPlatform/SwaggerUi/index.html.twig', [
             'title' => '',
             'description' => '',
@@ -76,9 +83,13 @@ class SwaggerUiActionTest extends TestCase
             'swaggerUiEnabled' => false,
             'reDocEnabled' => false,
             'graphqlEnabled' => false,
+            'graphiQlEnabled' => false,
+            'graphQlPlaygroundEnabled' => false,
+            'assetPackage' => null,
             'swagger_data' => [
                 'url' => '/url',
                 'spec' => self::SPEC,
+                'extraConfiguration' => [],
                 'oauth' => [
                     'enabled' => false,
                     'clientId' => '',
@@ -96,9 +107,9 @@ class SwaggerUiActionTest extends TestCase
                 'path' => '/fs',
                 'method' => 'get',
             ],
-        ])->shouldBeCalled();
+        ])->shouldBeCalled()->willReturn('');
 
-        $twigItemProphecy = $this->prophesize(\Twig_Environment::class);
+        $twigItemProphecy = $this->prophesize(TwigEnvironment::class);
         $twigItemProphecy->render('@ApiPlatform/SwaggerUi/index.html.twig', [
             'title' => '',
             'description' => '',
@@ -107,9 +118,13 @@ class SwaggerUiActionTest extends TestCase
             'showWebby' => true,
             'reDocEnabled' => false,
             'graphqlEnabled' => false,
+            'graphiQlEnabled' => false,
+            'graphQlPlaygroundEnabled' => false,
+            'assetPackage' => null,
             'swagger_data' => [
                 'url' => '/url',
                 'spec' => self::SPEC,
+                'extraConfiguration' => [],
                 'oauth' => [
                     'enabled' => false,
                     'clientId' => '',
@@ -127,7 +142,7 @@ class SwaggerUiActionTest extends TestCase
                 'path' => '/fs/{id}',
                 'method' => 'get',
             ],
-        ])->shouldBeCalled();
+        ])->shouldBeCalled()->willReturn('');
 
         return [
             [new Request([], [], ['_api_resource_class' => 'Foo', '_api_collection_operation_name' => 'get']), $twigCollectionProphecy],
@@ -138,18 +153,21 @@ class SwaggerUiActionTest extends TestCase
 
     /**
      * @dataProvider getDoNotRunCurrentRequestParameters
+     * @group legacy
      */
     public function testDoNotRunCurrentRequest(Request $request)
     {
+        $this->expectDeprecation('The use of "ApiPlatform\Core\Bridge\Symfony\Bundle\Action\SwaggerUiAction" is deprecated since API Platform 2.6, use "ApiPlatform\Core\Bridge\Symfony\Bundle\SwaggerUi\SwaggerUiAction" instead.');
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
         $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection(['Foo', 'Bar']))->shouldBeCalled();
 
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
+        $resourceMetadataFactoryProphecy->create('Foo')->willReturn(new ResourceMetadata());
 
         $normalizerProphecy = $this->prophesize(NormalizerInterface::class);
         $normalizerProphecy->normalize(Argument::type(Documentation::class), 'json', Argument::type('array'))->willReturn(self::SPEC)->shouldBeCalled();
 
-        $twigProphecy = $this->prophesize(\Twig_Environment::class);
+        $twigProphecy = $this->prophesize(TwigEnvironment::class);
         $twigProphecy->render('@ApiPlatform/SwaggerUi/index.html.twig', [
             'title' => '',
             'description' => '',
@@ -158,9 +176,13 @@ class SwaggerUiActionTest extends TestCase
             'swaggerUiEnabled' => false,
             'reDocEnabled' => false,
             'graphqlEnabled' => false,
+            'graphiQlEnabled' => false,
+            'graphQlPlaygroundEnabled' => false,
+            'assetPackage' => null,
             'swagger_data' => [
                 'url' => '/url',
                 'spec' => self::SPEC,
+                'extraConfiguration' => [],
                 'oauth' => [
                     'enabled' => false,
                     'clientId' => '',
@@ -172,7 +194,7 @@ class SwaggerUiActionTest extends TestCase
                     'scopes' => [],
                 ],
             ],
-        ])->shouldBeCalled();
+        ])->shouldBeCalled()->willReturn('');
 
         $urlGeneratorProphecy = $this->prophesize(UrlGenerator::class);
         $urlGeneratorProphecy->generate('api_doc', ['format' => 'json'])->willReturn('/url')->shouldBeCalled();
@@ -187,14 +209,11 @@ class SwaggerUiActionTest extends TestCase
         $action($request);
     }
 
-    public function getDoNotRunCurrentRequestParameters()
+    public function getDoNotRunCurrentRequestParameters(): iterable
     {
         $nonSafeRequest = new Request([], [], ['_api_resource_class' => 'Foo', '_api_collection_operation_name' => 'post']);
         $nonSafeRequest->setMethod('POST');
-
-        return [
-            [$nonSafeRequest],
-            [new Request()],
-        ];
+        yield [$nonSafeRequest];
+        yield [new Request()];
     }
 }

@@ -23,28 +23,35 @@ use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use ApiPlatform\Core\Metadata\Property\PropertyNameCollection;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
+use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Document\Dummy;
-use Doctrine\Common\Persistence\ManagerRegistry;
-use Doctrine\Common\Persistence\ObjectManager;
-use Doctrine\Common\Persistence\ObjectRepository;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use Doctrine\ODM\MongoDB\Aggregation\Builder;
-use Doctrine\ODM\MongoDB\Aggregation\Stage\Match;
+use Doctrine\ODM\MongoDB\Aggregation\Stage\Match as AggregationMatch;
 use Doctrine\ODM\MongoDB\Iterator\Iterator;
 use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
 use Doctrine\ODM\MongoDB\Repository\DocumentRepository;
 use Doctrine\ODM\MongoDB\Types\Type as MongoDbType;
+use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\Persistence\ObjectManager;
+use Doctrine\Persistence\ObjectRepository;
 use PHPUnit\Framework\TestCase;
 
 /**
+ * @group mongodb
+ *
  * @author Alan Poulain <contact@alanpoulain.eu>
  */
 class ItemDataProviderTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testGetItemSingleIdentifier()
     {
         $context = ['foo' => 'bar', 'fetch_data' => true, IdentifierConverterInterface::HAS_IDENTIFIER_CONVERTER => true];
 
-        $matchProphecy = $this->prophesize(Match::class);
+        $matchProphecy = $this->prophesize(AggregationMatch::class);
         $matchProphecy->field('id')->willReturn($matchProphecy)->shouldBeCalled();
         $matchProphecy->equals(1)->shouldBeCalled();
 
@@ -55,10 +62,10 @@ class ItemDataProviderTest extends TestCase
         $aggregationBuilderProphecy = $this->prophesize(Builder::class);
         $aggregationBuilderProphecy->match()->willReturn($matchProphecy->reveal())->shouldBeCalled();
         $aggregationBuilderProphecy->hydrate(Dummy::class)->willReturn($aggregationBuilderProphecy)->shouldBeCalled();
-        $aggregationBuilderProphecy->execute()->willReturn($iterator->reveal())->shouldBeCalled();
+        $aggregationBuilderProphecy->execute([])->willReturn($iterator->reveal())->shouldBeCalled();
         $aggregationBuilder = $aggregationBuilderProphecy->reveal();
 
-        [$propertyNameCollectionFactory, $propertyMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'id',
         ]);
         $managerRegistry = $this->getManagerRegistry(Dummy::class, $aggregationBuilder);
@@ -66,14 +73,53 @@ class ItemDataProviderTest extends TestCase
         $extensionProphecy = $this->prophesize(AggregationItemExtensionInterface::class);
         $extensionProphecy->applyToItem($aggregationBuilder, Dummy::class, ['id' => 1], 'foo', $context)->shouldBeCalled();
 
-        $dataProvider = new ItemDataProvider($managerRegistry, $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
+        $dataProvider = new ItemDataProvider($managerRegistry, $resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
+
+        $this->assertEquals($result, $dataProvider->getItem(Dummy::class, ['id' => 1], 'foo', $context));
+    }
+
+    public function testGetItemWithExecuteOptions()
+    {
+        $context = ['foo' => 'bar', 'fetch_data' => true, IdentifierConverterInterface::HAS_IDENTIFIER_CONVERTER => true];
+
+        $matchProphecy = $this->prophesize(AggregationMatch::class);
+        $matchProphecy->field('id')->willReturn($matchProphecy)->shouldBeCalled();
+        $matchProphecy->equals(1)->shouldBeCalled();
+
+        $iterator = $this->prophesize(Iterator::class);
+        $result = new \stdClass();
+        $iterator->current()->willReturn($result)->shouldBeCalled();
+
+        $aggregationBuilderProphecy = $this->prophesize(Builder::class);
+        $aggregationBuilderProphecy->match()->willReturn($matchProphecy->reveal())->shouldBeCalled();
+        $aggregationBuilderProphecy->hydrate(Dummy::class)->willReturn($aggregationBuilderProphecy)->shouldBeCalled();
+        $aggregationBuilderProphecy->execute(['allowDiskUse' => true])->willReturn($iterator->reveal())->shouldBeCalled();
+        $aggregationBuilder = $aggregationBuilderProphecy->reveal();
+
+        [$propertyNameCollectionFactory, $propertyMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
+            'id',
+        ]);
+        $managerRegistry = $this->getManagerRegistry(Dummy::class, $aggregationBuilder);
+
+        $resourceMetadataFactory = $this->prophesize(ResourceMetadataFactoryInterface::class);
+        $resourceMetadataFactory->create(Dummy::class)->willReturn(new ResourceMetadata(
+            'Dummy',
+            null,
+            null,
+            ['foo' => ['doctrine_mongodb' => ['execute_options' => ['allowDiskUse' => true]]]]
+        ));
+
+        $extensionProphecy = $this->prophesize(AggregationItemExtensionInterface::class);
+        $extensionProphecy->applyToItem($aggregationBuilder, Dummy::class, ['id' => 1], 'foo', $context)->shouldBeCalled();
+
+        $dataProvider = new ItemDataProvider($managerRegistry, $resourceMetadataFactory->reveal(), $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
 
         $this->assertEquals($result, $dataProvider->getItem(Dummy::class, ['id' => 1], 'foo', $context));
     }
 
     public function testGetItemDoubleIdentifier()
     {
-        $matchProphecy = $this->prophesize(Match::class);
+        $matchProphecy = $this->prophesize(AggregationMatch::class);
         $matchProphecy->field('ida')->willReturn($matchProphecy)->shouldBeCalled();
         $matchProphecy->field('idb')->willReturn($matchProphecy)->shouldBeCalled();
         $matchProphecy->equals(1)->shouldBeCalled();
@@ -86,10 +132,10 @@ class ItemDataProviderTest extends TestCase
         $aggregationBuilderProphecy = $this->prophesize(Builder::class);
         $aggregationBuilderProphecy->match()->willReturn($matchProphecy->reveal())->shouldBeCalled();
         $aggregationBuilderProphecy->hydrate(Dummy::class)->willReturn($aggregationBuilderProphecy)->shouldBeCalled();
-        $aggregationBuilderProphecy->execute()->willReturn($iterator->reveal())->shouldBeCalled();
+        $aggregationBuilderProphecy->execute([])->willReturn($iterator->reveal())->shouldBeCalled();
         $aggregationBuilder = $aggregationBuilderProphecy->reveal();
 
-        [$propertyNameCollectionFactory, $propertyMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'ida',
             'idb',
         ]);
@@ -99,7 +145,7 @@ class ItemDataProviderTest extends TestCase
         $extensionProphecy = $this->prophesize(AggregationItemExtensionInterface::class);
         $extensionProphecy->applyToItem($aggregationBuilder, Dummy::class, ['ida' => 1, 'idb' => 2], 'foo', $context)->shouldBeCalled();
 
-        $dataProvider = new ItemDataProvider($managerRegistry, $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
+        $dataProvider = new ItemDataProvider($managerRegistry, $resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
 
         $this->assertEquals($result, $dataProvider->getItem(Dummy::class, ['ida' => 1, 'idb' => 2], 'foo', $context));
     }
@@ -111,7 +157,7 @@ class ItemDataProviderTest extends TestCase
     {
         $this->expectException(PropertyNotFoundException::class);
 
-        [$propertyNameCollectionFactory, $propertyMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'ida',
             'idb',
         ]);
@@ -124,13 +170,13 @@ class ItemDataProviderTest extends TestCase
             ],
         ]);
 
-        $dataProvider = new ItemDataProvider($managerRegistry, $propertyNameCollectionFactory, $propertyMetadataFactory);
+        $dataProvider = new ItemDataProvider($managerRegistry, $resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory);
         $dataProvider->getItem(Dummy::class, 'ida=1;', 'foo');
     }
 
     public function testAggregationResultExtension()
     {
-        $matchProphecy = $this->prophesize(Match::class);
+        $matchProphecy = $this->prophesize(AggregationMatch::class);
         $matchProphecy->field('id')->willReturn($matchProphecy)->shouldBeCalled();
         $matchProphecy->equals(1)->shouldBeCalled();
 
@@ -138,7 +184,7 @@ class ItemDataProviderTest extends TestCase
         $aggregationBuilderProphecy->match()->willReturn($matchProphecy->reveal())->shouldBeCalled();
         $aggregationBuilder = $aggregationBuilderProphecy->reveal();
 
-        [$propertyNameCollectionFactory, $propertyMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'id',
         ]);
         $managerRegistry = $this->getManagerRegistry(Dummy::class, $aggregationBuilder);
@@ -149,7 +195,7 @@ class ItemDataProviderTest extends TestCase
         $extensionProphecy->supportsResult(Dummy::class, 'foo', $context)->willReturn(true)->shouldBeCalled();
         $extensionProphecy->getResult($aggregationBuilder, Dummy::class, 'foo', $context)->willReturn([])->shouldBeCalled();
 
-        $dataProvider = new ItemDataProvider($managerRegistry, $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
+        $dataProvider = new ItemDataProvider($managerRegistry, $resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
 
         $this->assertEquals([], $dataProvider->getItem(Dummy::class, ['id' => 1], 'foo', $context));
     }
@@ -161,11 +207,11 @@ class ItemDataProviderTest extends TestCase
 
         $extensionProphecy = $this->prophesize(AggregationItemExtensionInterface::class);
 
-        [$propertyNameCollectionFactory, $propertyMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'id',
         ]);
 
-        $dataProvider = new ItemDataProvider($managerRegistryProphecy->reveal(), $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
+        $dataProvider = new ItemDataProvider($managerRegistryProphecy->reveal(), $resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]);
         $this->assertFalse($dataProvider->supports(Dummy::class, 'foo'));
     }
 
@@ -184,11 +230,11 @@ class ItemDataProviderTest extends TestCase
 
         $extensionProphecy = $this->prophesize(AggregationItemExtensionInterface::class);
 
-        [$propertyNameCollectionFactory, $propertyMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'id',
         ]);
 
-        (new ItemDataProvider($managerRegistryProphecy->reveal(), $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]))->getItem(Dummy::class, 'foo', null, [IdentifierConverterInterface::HAS_IDENTIFIER_CONVERTER => true]);
+        (new ItemDataProvider($managerRegistryProphecy->reveal(), $resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory, [$extensionProphecy->reveal()]))->getItem(Dummy::class, 'foo', null, [IdentifierConverterInterface::HAS_IDENTIFIER_CONVERTER => true]);
     }
 
     /**
@@ -198,6 +244,7 @@ class ItemDataProviderTest extends TestCase
     {
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyMetadataFactoryProphecy = $this->prophesize(PropertyMetadataFactoryInterface::class);
+        $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
 
         $nameCollection = ['foobar'];
 
@@ -213,8 +260,9 @@ class ItemDataProviderTest extends TestCase
         $propertyMetadataFactoryProphecy->create($resourceClass, 'foobar')->willReturn(new PropertyMetadata());
 
         $propertyNameCollectionFactoryProphecy->create($resourceClass)->willReturn(new PropertyNameCollection($nameCollection));
+        $resourceMetadataFactoryProphecy->create($resourceClass)->willReturn(new ResourceMetadata('dummy'));
 
-        return [$propertyNameCollectionFactoryProphecy->reveal(), $propertyMetadataFactoryProphecy->reveal()];
+        return [$propertyNameCollectionFactoryProphecy->reveal(), $propertyMetadataFactoryProphecy->reveal(), $resourceMetadataFactoryProphecy->reveal()];
     }
 
     /**

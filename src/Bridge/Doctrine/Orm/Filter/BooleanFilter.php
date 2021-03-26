@@ -29,12 +29,14 @@ use Doctrine\ORM\QueryBuilder;
  *
  * @author Amrouche Hamza <hamza.simperfit@gmail.com>
  * @author Teoh Han Hui <teohhanhui@gmail.com>
+ *
+ * @final
  */
 class BooleanFilter extends AbstractContextAwareFilter
 {
     use BooleanFilterTrait;
 
-    const DOCTRINE_BOOLEAN_TYPES = [
+    public const DOCTRINE_BOOLEAN_TYPES = [
         DBALType::BOOLEAN => true,
     ];
 
@@ -60,7 +62,7 @@ class BooleanFilter extends AbstractContextAwareFilter
         $field = $property;
 
         if ($this->isPropertyNested($property, $resourceClass)) {
-            list($alias, $field) = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator, $resourceClass);
+            [$alias, $field] = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator, $resourceClass);
         }
 
         $valueParameter = $queryNameGenerator->generateParameterName($field);

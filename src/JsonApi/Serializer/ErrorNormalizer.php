@@ -14,12 +14,13 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\JsonApi\Serializer;
 
 use ApiPlatform\Core\Problem\Serializer\ErrorNormalizerTrait;
-use Symfony\Component\Debug\Exception\FlattenException;
+use Symfony\Component\Debug\Exception\FlattenException as LegacyFlattenException;
+use Symfony\Component\ErrorHandler\Exception\FlattenException;
 use Symfony\Component\Serializer\Normalizer\CacheableSupportsMethodInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
 /**
- * Converts {@see \Exception} or {@see \Symfony\Component\Debug\Exception\FlattenException} to a JSON API error representation.
+ * Converts {@see \Exception} or {@see FlattenException} or {@see LegacyFlattenException}  to a JSON API error representation.
  *
  * @author Héctor Hurtarte <hectorh30@gmail.com>
  */
@@ -27,8 +28,8 @@ final class ErrorNormalizer implements NormalizerInterface, CacheableSupportsMet
 {
     use ErrorNormalizerTrait;
 
-    const FORMAT = 'jsonapi';
-    const TITLE = 'title';
+    public const FORMAT = 'jsonapi';
+    public const TITLE = 'title';
 
     private $debug;
     private $defaultContext = [
@@ -48,6 +49,10 @@ final class ErrorNormalizer implements NormalizerInterface, CacheableSupportsMet
             'description' => $this->getErrorMessage($object, $context, $this->debug),
         ];
 
+        if (null !== $errorCode = $this->getErrorCode($object)) {
+            $data['code'] = $errorCode;
+        }
+
         if ($this->debug && null !== $trace = $object->getTrace()) {
             $data['trace'] = $trace;
         }
@@ -60,7 +65,7 @@ final class ErrorNormalizer implements NormalizerInterface, CacheableSupportsMet
      */
     public function supportsNormalization($data, $format = null)
     {
-        return self::FORMAT === $format && ($data instanceof \Exception || $data instanceof FlattenException);
+        return self::FORMAT === $format && ($data instanceof \Exception || $data instanceof FlattenException || $data instanceof LegacyFlattenException);
     }
 
     /**

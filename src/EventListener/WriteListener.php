@@ -14,39 +14,58 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\EventListener;
 
 use ApiPlatform\Core\Api\IriConverterInterface;
+use ApiPlatform\Core\Api\ResourceClassResolverInterface;
 use ApiPlatform\Core\DataPersister\DataPersisterInterface;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
+use ApiPlatform\Core\Metadata\Resource\ToggleableOperationAttributeTrait;
 use ApiPlatform\Core\Util\RequestAttributesExtractor;
-use Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent;
+use ApiPlatform\Core\Util\ResourceClassInfoTrait;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\ViewEvent;
 
 /**
- * Bridges persistense and the API system.
+ * Bridges persistence and the API system.
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Baptiste Meyer <baptiste.meyer@gmail.com>
  */
 final class WriteListener
 {
+    use ResourceClassInfoTrait;
+    use ToggleableOperationAttributeTrait;
+
+    public const OPERATION_ATTRIBUTE_KEY = 'write';
+
     private $dataPersister;
     private $iriConverter;
 
-    public function __construct(DataPersisterInterface $dataPersister, IriConverterInterface $iriConverter = null)
+    public function __construct(DataPersisterInterface $dataPersister, IriConverterInterface $iriConverter = null, ResourceMetadataFactoryInterface $resourceMetadataFactory = null, ResourceClassResolverInterface $resourceClassResolver = null)
     {
         $this->dataPersister = $dataPersister;
         $this->iriConverter = $iriConverter;
+        $this->resourceMetadataFactory = $resourceMetadataFactory;
+        $this->resourceClassResolver = $resourceClassResolver;
     }
 
     /**
      * Persists, updates or delete data return by the controller if applicable.
      */
-    public function onKernelView(GetResponseForControllerResultEvent $event)
+    public function onKernelView(ViewEvent $event): void
     {
+        $controllerResult = $event->getControllerResult();
         $request = $event->getRequest();
-        if ($request->isMethodSafe(false) || !$request->attributes->getBoolean('_api_persist', true) || !$attributes = RequestAttributesExtractor::extractAttributes($request)) {
+
+        if (
+            $controllerResult instanceof Response
+            || $request->isMethodSafe()
+            || !($attributes = RequestAttributesExtractor::extractAttributes($request))
+            || !$attributes['persist']
+            || $this->isOperationAttributeDisabled($attributes, self::OPERATION_ATTRIBUTE_KEY)
+        ) {
             return;
         }
 
-        $controllerResult = $event->getControllerResult();
-        if (!$this->dataPersister->supports($controllerResult)) {
+        if (!$this->dataPersister->supports($controllerResult, $attributes)) {
             return;
         }
 
@@ -54,23 +73,40 @@ final class WriteListener
             case 'PUT':
             case 'PATCH':
             case 'POST':
-                $persistResult = $this->dataPersister->persist($controllerResult);
+                $persistResult = $this->dataPersister->persist($controllerResult, $attributes);
 
-                if (null === $persistResult) {
-                    @trigger_error(sprintf('Returning void from %s::persist() is deprecated since API Platform 2.3 and will not be supported in API Platform 3, an object should always be returned.', DataPersisterInterface::class), E_USER_DEPRECATED);
+                if (!\is_object($persistResult)) {
+                    @trigger_error(sprintf('Not returning an object from %s::persist() is deprecated since API Platform 2.3 and will not be supported in API Platform 3.', DataPersisterInterface::class), \E_USER_DEPRECATED);
+                } else {
+                    $controllerResult = $persistResult;
+                    $event->setControllerResult($controllerResult);
                 }
 
-                $event->setControllerResult($persistResult ?? $controllerResult);
+                if ($controllerResult instanceof Response) {
+                    break;
+                }
 
-                // Controller result must be immutable for _api_write_item_iri
-                // if it's class changed compared to the base class let's avoid calling the IriConverter
-                // especially that the Output class could be a DTO that's not referencing any route
-                if (null !== $this->iriConverter && (false !== $attributes['output_class'] ?? null) && \get_class($controllerResult) === \get_class($event->getControllerResult())) {
+                $hasOutput = true;
+                if ($this->resourceMetadataFactory instanceof ResourceMetadataFactoryInterface) {
+                    $resourceMetadata = $this->resourceMetadataFactory->create($attributes['resource_class']);
+                    $outputMetadata = $resourceMetadata->getOperationAttribute($attributes, 'output', [
+                        'class' => $attributes['resource_class'],
+                    ], true);
+
+                    $hasOutput = \array_key_exists('class', $outputMetadata) && null !== $outputMetadata['class'];
+                }
+
+                if (!$hasOutput) {
+                    break;
+                }
+
+                if ($this->iriConverter instanceof IriConverterInterface && $this->isResourceClass($this->getObjectClass($controllerResult))) {
                     $request->attributes->set('_api_write_item_iri', $this->iriConverter->getIriFromItem($controllerResult));
                 }
+
                 break;
             case 'DELETE':
-                $this->dataPersister->remove($controllerResult);
+                $this->dataPersister->remove($controllerResult, $attributes);
                 $event->setControllerResult(null);
                 break;
         }

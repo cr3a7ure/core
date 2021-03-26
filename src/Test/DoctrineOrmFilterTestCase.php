@@ -16,14 +16,15 @@ namespace ApiPlatform\Core\Test;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Filter\FilterInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGenerator;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
-use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\EntityRepository;
-use Symfony\Bridge\Doctrine\Test\DoctrineTestHelper;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
+ * @internal
+ *
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
 abstract class DoctrineOrmFilterTestCase extends KernelTestCase
@@ -53,33 +54,32 @@ abstract class DoctrineOrmFilterTestCase extends KernelTestCase
      */
     protected $filterClass;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         self::bootKernel();
 
-        $manager = DoctrineTestHelper::createTestEntityManager();
         $this->managerRegistry = self::$kernel->getContainer()->get('doctrine');
-        $this->repository = $manager->getRepository(Dummy::class);
+        $this->repository = $this->managerRegistry->getManagerForClass(Dummy::class)->getRepository(Dummy::class);
     }
 
     /**
      * @dataProvider provideApplyTestData
      */
-    public function testApply(array $properties = null, array $filterParameters, string $expectedDql, array $expectedParameters = null, callable $factory = null)
+    public function testApply(?array $properties, array $filterParameters, string $expectedDql, array $expectedParameters = null, callable $factory = null, string $resourceClass = null)
     {
-        $this->doTestApply(false, $properties, $filterParameters, $expectedDql, $expectedParameters, $factory);
+        $this->doTestApply(false, $properties, $filterParameters, $expectedDql, $expectedParameters, $factory, $resourceClass);
     }
 
     /**
      * @group legacy
      * @dataProvider provideApplyTestData
      */
-    public function testApplyRequest(array $properties = null, array $filterParameters, string $expectedDql, array $expectedParameters = null, callable $factory = null)
+    public function testApplyRequest(?array $properties, array $filterParameters, string $expectedDql, array $expectedParameters = null, callable $factory = null, string $resourceClass = null)
     {
-        $this->doTestApply(true, $properties, $filterParameters, $expectedDql, $expectedParameters, $factory);
+        $this->doTestApply(true, $properties, $filterParameters, $expectedDql, $expectedParameters, $factory, $resourceClass);
     }
 
-    protected function doTestApply(bool $request, array $properties = null, array $filterParameters, string $expectedDql, array $expectedParameters = null, callable $filterFactory = null)
+    protected function doTestApply(bool $request, ?array $properties, array $filterParameters, string $expectedDql, array $expectedParameters = null, callable $filterFactory = null, string $resourceClass = null)
     {
         if (null === $filterFactory) {
             $filterFactory = function (ManagerRegistry $managerRegistry, array $properties = null, RequestStack $requestStack = null): FilterInterface {
@@ -95,9 +95,15 @@ abstract class DoctrineOrmFilterTestCase extends KernelTestCase
             $requestStack->push(Request::create('/api/dummies', 'GET', $filterParameters));
         }
 
-        $queryBuilder = $this->repository->createQueryBuilder($this->alias);
+        $repository = $this->repository;
+        if ($resourceClass) {
+            /** @var EntityRepository $repository */
+            $repository = $this->managerRegistry->getManagerForClass($resourceClass)->getRepository($resourceClass);
+        }
+        $resourceClass = $resourceClass ?: $this->resourceClass;
+        $queryBuilder = $repository->createQueryBuilder($this->alias);
         $filterCallable = $filterFactory($this->managerRegistry, $properties, $requestStack);
-        $filterCallable->apply($queryBuilder, new QueryNameGenerator(), $this->resourceClass, null, $request ? [] : ['filters' => $filterParameters]);
+        $filterCallable->apply($queryBuilder, new QueryNameGenerator(), $resourceClass, null, $request ? [] : ['filters' => $filterParameters]);
 
         $this->assertEquals($expectedDql, $queryBuilder->getQuery()->getDQL());
 

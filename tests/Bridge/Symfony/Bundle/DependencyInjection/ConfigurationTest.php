@@ -42,7 +42,7 @@ class ConfigurationTest extends TestCase
      */
     private $processor;
 
-    public function setUp()
+    protected function setUp(): void
     {
         $this->configuration = new Configuration();
         $this->processor = new Processor();
@@ -50,8 +50,33 @@ class ConfigurationTest extends TestCase
 
     public function testDefaultConfig()
     {
+        $this->runDefaultConfigTests();
+    }
+
+    /**
+     * @group mongodb
+     */
+    public function testDefaultConfigWithMongoDbOdm()
+    {
+        $this->runDefaultConfigTests(['orm', 'odm']);
+    }
+
+    private function runDefaultConfigTests(array $doctrineIntegrationsToLoad = ['orm'])
+    {
         $treeBuilder = $this->configuration->getConfigTreeBuilder();
-        $config = $this->processor->processConfiguration($this->configuration, ['api_platform' => ['title' => 'title', 'description' => 'description', 'version' => '1.0.0']]);
+        $config = $this->processor->processConfiguration($this->configuration, [
+            'api_platform' => [
+                'title' => 'title',
+                'description' => 'description',
+                'version' => '1.0.0',
+                'doctrine' => [
+                    'enabled' => \in_array('orm', $doctrineIntegrationsToLoad, true),
+                ],
+                'doctrine_mongodb_odm' => [
+                    'enabled' => \in_array('odm', $doctrineIntegrationsToLoad, true),
+                ],
+            ],
+        ]);
 
         $this->assertInstanceOf(ConfigurationInterface::class, $this->configuration);
         $this->assertInstanceOf(TreeBuilder::class, $treeBuilder);
@@ -65,6 +90,7 @@ class ConfigurationTest extends TestCase
                 'json' => ['mime_types' => ['application/json']],
                 'html' => ['mime_types' => ['text/html']],
             ],
+            'patch_formats' => [],
             'error_formats' => [
                 'jsonproblem' => ['mime_types' => ['application/problem+json']],
                 'jsonld' => ['mime_types' => ['application/ld+json']],
@@ -81,7 +107,7 @@ class ConfigurationTest extends TestCase
                 'serialize_payload_fields' => [],
             ],
             'name_converter' => null,
-            'enable_fos_user' => true,
+            'enable_fos_user' => false,
             'enable_nelmio_api_doc' => false,
             'enable_swagger' => true,
             'enable_swagger_ui' => true,
@@ -91,8 +117,18 @@ class ConfigurationTest extends TestCase
             'enable_profiler' => true,
             'graphql' => [
                 'enabled' => true,
+                'default_ide' => 'graphiql',
+                'graphql_playground' => [
+                    'enabled' => true,
+                ],
                 'graphiql' => [
                     'enabled' => true,
+                ],
+                'nesting_separator' => '_',
+                'collection' => [
+                    'pagination' => [
+                        'enabled' => true,
+                    ],
                 ],
             ],
             'elasticsearch' => [
@@ -106,12 +142,15 @@ class ConfigurationTest extends TestCase
                 'clientSecret' => '',
                 'type' => 'oauth2',
                 'flow' => 'application',
-                'tokenUrl' => '/oauth/v2/token',
-                'authorizationUrl' => '/oauth/v2/auth',
+                'tokenUrl' => '',
+                'authorizationUrl' => '',
+                'refreshUrl' => '',
                 'scopes' => [],
             ],
             'swagger' => [
+                'versions' => [2, 3],
                 'api_keys' => [],
+                'swagger_ui_extra_configuration' => [],
             ],
             'eager_loading' => [
                 'enabled' => true,
@@ -120,8 +159,10 @@ class ConfigurationTest extends TestCase
                 'fetch_partial' => false,
             ],
             'collection' => [
+                'exists_parameter_name' => 'exists',
                 'order' => 'ASC',
                 'order_parameter_name' => 'order',
+                'order_nulls_comparison' => null,
                 'pagination' => [
                     'enabled' => true,
                     'partial' => false,
@@ -144,6 +185,7 @@ class ConfigurationTest extends TestCase
                     'enabled' => false,
                     'varnish_urls' => [],
                     'request_options' => [],
+                    'max_header_length' => 7500,
                 ],
                 'etag' => true,
                 'max_age' => null,
@@ -152,9 +194,12 @@ class ConfigurationTest extends TestCase
                 'public' => null,
             ],
             'doctrine' => [
-                'enabled' => true,
+                'enabled' => \in_array('orm', $doctrineIntegrationsToLoad, true),
             ],
             'doctrine_mongodb_odm' => [
+                'enabled' => \in_array('odm', $doctrineIntegrationsToLoad, true),
+            ],
+            'messenger' => [
                 'enabled' => true,
             ],
             'mercure' => [
@@ -163,6 +208,21 @@ class ConfigurationTest extends TestCase
             ],
             'allow_plain_identifiers' => false,
             'resource_class_directories' => [],
+            'asset_package' => null,
+            'openapi' => [
+                'contact' => [
+                    'name' => null,
+                    'url' => null,
+                    'email' => null,
+                ],
+                'termsOfService' => null,
+                'license' => [
+                    'name' => null,
+                    'url' => null,
+                ],
+                'backward_compatibility_layer' => true,
+                'swagger_ui_extra_configuration' => [],
+            ],
         ], $config);
     }
 
@@ -190,7 +250,6 @@ class ConfigurationTest extends TestCase
 
     /**
      * @group legacy
-     * @expectedDeprecation The use of the `default_operation_path_resolver` has been deprecated in 2.1 and will be removed in 3.0. Use `path_segment_name_generator` instead.
      */
     public function testLegacyDefaultOperationPathResolver()
     {
@@ -219,7 +278,7 @@ class ConfigurationTest extends TestCase
     public function testExceptionToStatusConfigWithInvalidHttpStatusCode($invalidHttpStatusCode)
     {
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessageRegExp('/The HTTP status code ".+" is not valid\\./');
+        $this->expectExceptionMessageMatches('/The HTTP status code ".+" is not valid\\./');
 
         $this->processor->processConfiguration($this->configuration, [
             'api_platform' => [
@@ -235,7 +294,7 @@ class ConfigurationTest extends TestCase
         return [
             [true],
             [null],
-            [-INF],
+            [-\INF],
             [40.4],
             ['foo'],
             ['HTTP_FOO_BAR'],
@@ -248,7 +307,7 @@ class ConfigurationTest extends TestCase
     public function testExceptionToStatusConfigWithInvalidHttpStatusCodeValue($invalidHttpStatusCodeValue)
     {
         $this->expectException(InvalidTypeException::class);
-        $this->expectExceptionMessageRegExp('/Invalid type for path "api_platform\\.exception_to_status\\.Exception". Expected int, but got .+\\./');
+        $this->expectExceptionMessageMatches('/Invalid type for path "api_platform\\.exception_to_status\\.Exception". Expected "?int"?, but got .+\\./');
 
         $this->processor->processConfiguration($this->configuration, [
             'api_platform' => [
@@ -277,8 +336,65 @@ class ConfigurationTest extends TestCase
             ],
         ]);
 
-        $this->assertTrue(isset($config['swagger']['api_keys']));
+        $this->assertArrayHasKey('api_keys', $config['swagger']);
         $this->assertSame($exampleConfig, $config['swagger']['api_keys'][0]);
+    }
+
+    /**
+     * Test config for disabled swagger versions.
+     */
+    public function testDisabledSwaggerVersionConfig()
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            'api_platform' => [
+                'enable_swagger' => false,
+                'swagger' => [
+                    'versions' => [3],
+                ],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('versions', $config['swagger']);
+        $this->assertEmpty($config['swagger']['versions']);
+    }
+
+    /**
+     * Test config for swagger versions.
+     */
+    public function testSwaggerVersionConfig()
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            'api_platform' => [
+                'swagger' => [
+                    'versions' => [3],
+                ],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('versions', $config['swagger']);
+        $this->assertSame([3], $config['swagger']['versions']);
+
+        $config = $this->processor->processConfiguration($this->configuration, [
+            'api_platform' => [
+                'swagger' => [
+                    'versions' => 2,
+                ],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('versions', $config['swagger']);
+        $this->assertSame([2], $config['swagger']['versions']);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/Only the versions .+ are supported. Got .+./');
+
+        $this->processor->processConfiguration($this->configuration, [
+            'api_platform' => [
+                'swagger' => [
+                    'versions' => [1],
+                ],
+            ],
+        ]);
     }
 
     /**
@@ -290,7 +406,18 @@ class ConfigurationTest extends TestCase
             'api_platform' => [],
         ]);
 
-        $this->assertSame($config['title'], '');
-        $this->assertSame($config['description'], '');
+        $this->assertSame('', $config['title']);
+        $this->assertSame('', $config['description']);
+    }
+
+    public function testEnableElasticsearch()
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            'api_platform' => [
+                'elasticsearch' => true,
+            ],
+        ]);
+
+        $this->assertTrue($config['elasticsearch']['enabled']);
     }
 }

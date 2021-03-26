@@ -21,9 +21,14 @@ use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
  *
  * @author Vincent Chalamon <vincentchalamon@gmail.com>
  *
- * @ApiResource(attributes={
- *     "order"={"dummy.name"}
- * })
+ * @ApiResource(
+ *     attributes={
+ *         "order"={"dummy.name"}
+ *     },
+ *     graphql={
+ *         "collection_query"={"pagination_type"="page"}
+ *     }
+ * )
  * @ODM\Document
  */
 class FooDummy
@@ -31,7 +36,7 @@ class FooDummy
     /**
      * @var int The id
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      */
     private $id;
 

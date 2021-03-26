@@ -17,18 +17,18 @@ use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceNameCollectionFactoryInterface;
 
 /**
- * Get property metadata from eventual child inherited properties.
- *
- * @author Antoine Bluchet <soyuka@gmail.com>
+ * @deprecated since 2.6, to be removed in 3.0
  */
 final class InheritedPropertyMetadataFactory implements PropertyMetadataFactoryInterface
 {
-    private $resourceNameCollection;
+    private $resourceNameCollectionFactory;
     private $decorated;
 
-    public function __construct(ResourceNameCollectionFactoryInterface $resourceNameCollection, PropertyMetadataFactoryInterface $decorated = null)
+    public function __construct(ResourceNameCollectionFactoryInterface $resourceNameCollectionFactory, PropertyMetadataFactoryInterface $decorated = null)
     {
-        $this->resourceNameCollection = $resourceNameCollection;
+        @trigger_error(sprintf('"%s" is deprecated since 2.6 and will be removed in 3.0.', __CLASS__), \E_USER_DEPRECATED);
+
+        $this->resourceNameCollectionFactory = $resourceNameCollectionFactory;
         $this->decorated = $decorated;
     }
 
@@ -37,9 +37,11 @@ final class InheritedPropertyMetadataFactory implements PropertyMetadataFactoryI
      */
     public function create(string $resourceClass, string $property, array $options = []): PropertyMetadata
     {
+        @trigger_error(sprintf('"%s" is deprecated since 2.6 and will be removed in 3.0.', __CLASS__), \E_USER_DEPRECATED);
+
         $propertyMetadata = $this->decorated ? $this->decorated->create($resourceClass, $property, $options) : new PropertyMetadata();
 
-        foreach ($this->resourceNameCollection->create() as $knownResourceClass) {
+        foreach ($this->resourceNameCollectionFactory->create() as $knownResourceClass) {
             if ($resourceClass === $knownResourceClass) {
                 continue;
             }

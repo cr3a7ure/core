@@ -50,7 +50,7 @@ final class YamlExtractor extends AbstractExtractor
         $this->extractResources($resourcesYaml, $path);
     }
 
-    private function extractResources(array $resourcesYaml, string $path)
+    private function extractResources(array $resourcesYaml, string $path): void
     {
         foreach ($resourcesYaml as $resourceName => $resourceYaml) {
             $resourceName = $this->resolve($resourceName);
@@ -89,7 +89,7 @@ final class YamlExtractor extends AbstractExtractor
         }
     }
 
-    private function extractProperties(array $resourceYaml, string $resourceName, string $path)
+    private function extractProperties(array $resourceYaml, string $resourceName, string $path): void
     {
         foreach ($resourceYaml['properties'] as $propertyName => $propertyValues) {
             if (null === $propertyValues) {
@@ -100,6 +100,9 @@ final class YamlExtractor extends AbstractExtractor
 
             if (!\is_array($propertyValues)) {
                 throw new InvalidArgumentException(sprintf('"%s" setting is expected to be null or an array, %s given in "%s".', $propertyName, \gettype($propertyValues), $path));
+            }
+            if (isset($propertyValues['subresource']['resourceClass'])) {
+                $propertyValues['subresource']['resourceClass'] = $this->resolve($propertyValues['subresource']['resourceClass']);
             }
 
             $this->resources[$resourceName]['properties'][$propertyName] = [

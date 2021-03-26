@@ -14,15 +14,17 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Tests\Bridge\Doctrine\Common\Util;
 
 use ApiPlatform\Core\Bridge\Doctrine\Common\Util\IdentifierManagerTrait;
+use ApiPlatform\Core\Exception\InvalidIdentifierException;
 use ApiPlatform\Core\Exception\PropertyNotFoundException;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use ApiPlatform\Core\Metadata\Property\PropertyNameCollection;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
+use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Document\Dummy as DummyDocument;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
-use Doctrine\Common\Persistence\Mapping\ClassMetadata;
-use Doctrine\Common\Persistence\ObjectManager;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type as DBALType;
@@ -30,21 +32,27 @@ use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Mapping\ClassMetadata as MongoDbOdmClassMetadata;
 use Doctrine\ODM\MongoDB\Types\Type as MongoDbType;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\Mapping\ClassMetadata;
+use Doctrine\Persistence\ObjectManager;
 use PHPUnit\Framework\TestCase;
+use Ramsey\Uuid\Doctrine\UuidType;
 
 class IdentifierManagerTraitTest extends TestCase
 {
-    private function getIdentifierManagerTraitImpl(PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory)
+    use ProphecyTrait;
+
+    private function getIdentifierManagerTraitImpl(PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, ResourceMetadataFactoryInterface $resourceMetadataFactory)
     {
-        return new class($propertyNameCollectionFactory, $propertyMetadataFactory) {
+        return new class($propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory) {
             use IdentifierManagerTrait {
                 IdentifierManagerTrait::normalizeIdentifiers as public;
             }
 
-            public function __construct(PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory)
+            public function __construct(PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, ResourceMetadataFactoryInterface $resourceMetadataFactory)
             {
                 $this->propertyNameCollectionFactory = $propertyNameCollectionFactory;
                 $this->propertyMetadataFactory = $propertyMetadataFactory;
+                $this->resourceMetadataFactory = $resourceMetadataFactory;
             }
         };
     }
@@ -54,7 +62,7 @@ class IdentifierManagerTraitTest extends TestCase
      */
     public function testSingleIdentifier()
     {
-        list($propertyNameCollectionFactory, $propertyMetadataFactory) = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'id',
         ]);
         $objectManager = $this->getEntityManager(Dummy::class, [
@@ -63,17 +71,18 @@ class IdentifierManagerTraitTest extends TestCase
             ],
         ]);
 
-        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory);
+        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory);
 
         $this->assertEquals($identifierManager->normalizeIdentifiers(1, $objectManager, Dummy::class), ['id' => 1]);
     }
 
     /**
      * @group legacy
+     * @group mongodb
      */
     public function testSingleDocumentIdentifier()
     {
-        [$propertyNameCollectionFactory, $propertyMetadataFactory] = $this->getMetadataFactories(DummyDocument::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(DummyDocument::class, [
             'id',
         ]);
         $objectManager = $this->getDocumentManager(DummyDocument::class, [
@@ -82,7 +91,7 @@ class IdentifierManagerTraitTest extends TestCase
             ],
         ]);
 
-        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory);
+        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory);
 
         $this->assertEquals($identifierManager->normalizeIdentifiers(1, $objectManager, DummyDocument::class), ['id' => 1]);
     }
@@ -92,7 +101,7 @@ class IdentifierManagerTraitTest extends TestCase
      */
     public function testCompositeIdentifier()
     {
-        list($propertyNameCollectionFactory, $propertyMetadataFactory) = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'ida',
             'idb',
         ]);
@@ -105,7 +114,7 @@ class IdentifierManagerTraitTest extends TestCase
             ],
         ]);
 
-        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory);
+        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory);
 
         $this->assertEquals($identifierManager->normalizeIdentifiers('ida=1;idb=2', $objectManager, Dummy::class), ['ida' => 1, 'idb' => 2]);
     }
@@ -116,9 +125,9 @@ class IdentifierManagerTraitTest extends TestCase
     public function testInvalidIdentifier()
     {
         $this->expectException(PropertyNotFoundException::class);
-        $this->expectExceptionMessage('Invalid identifier "idbad=1;idb=2", "ida" was not found.');
+        $this->expectExceptionMessage('Invalid identifier "idbad=1;idb=2", "ida" was not found for resource "dummy".');
 
-        list($propertyNameCollectionFactory, $propertyMetadataFactory) = $this->getMetadataFactories(Dummy::class, [
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
             'ida',
             'idb',
         ]);
@@ -131,7 +140,7 @@ class IdentifierManagerTraitTest extends TestCase
             ],
         ]);
 
-        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory);
+        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory);
 
         $identifierManager->normalizeIdentifiers('idbad=1;idb=2', $objectManager, Dummy::class);
     }
@@ -143,6 +152,7 @@ class IdentifierManagerTraitTest extends TestCase
     {
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyMetadataFactoryProphecy = $this->prophesize(PropertyMetadataFactoryInterface::class);
+        $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
 
         $nameCollection = ['foobar'];
 
@@ -158,8 +168,9 @@ class IdentifierManagerTraitTest extends TestCase
         $propertyMetadataFactoryProphecy->create($resourceClass, 'foobar')->willReturn(new PropertyMetadata());
 
         $propertyNameCollectionFactoryProphecy->create($resourceClass)->willReturn(new PropertyNameCollection($nameCollection));
+        $resourceMetadataFactoryProphecy->create($resourceClass)->willReturn(new ResourceMetadata('dummy'));
 
-        return [$propertyNameCollectionFactoryProphecy->reveal(), $propertyMetadataFactoryProphecy->reveal()];
+        return [$propertyNameCollectionFactoryProphecy->reveal(), $propertyMetadataFactoryProphecy->reveal(), $resourceMetadataFactoryProphecy->reveal()];
     }
 
     /**
@@ -202,5 +213,29 @@ class IdentifierManagerTraitTest extends TestCase
         $managerProphecy->getClassMetadata($resourceClass)->willReturn($classMetadataProphecy->reveal());
 
         return $managerProphecy->reveal();
+    }
+
+    /**
+     * @group legacy
+     */
+    public function testInvalidIdentifierConversion()
+    {
+        DBALType::addType('uuid', UuidType::class);
+
+        $this->expectException(InvalidIdentifierException::class);
+        $this->expectExceptionMessage('Invalid value "ida" provided for an identifier for resource "dummy".');
+
+        [$propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory] = $this->getMetadataFactories(Dummy::class, [
+            'ida',
+        ]);
+        $objectManager = $this->getEntityManager(Dummy::class, [
+            'ida' => [
+                'type' => 'uuid',
+            ],
+        ]);
+
+        $identifierManager = $this->getIdentifierManagerTraitImpl($propertyNameCollectionFactory, $propertyMetadataFactory, $resourceMetadataFactory);
+
+        $identifierManager->normalizeIdentifiers('notanuuid', $objectManager, Dummy::class);
     }
 }

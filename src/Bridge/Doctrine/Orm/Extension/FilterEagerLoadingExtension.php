@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Doctrine\Orm\Extension;
 
+use ApiPlatform\Core\Api\ResourceClassResolverInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\EagerLoadingTrait;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryBuilderHelper;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGeneratorInterface;
@@ -29,10 +30,13 @@ final class FilterEagerLoadingExtension implements ContextAwareQueryCollectionEx
 {
     use EagerLoadingTrait;
 
-    public function __construct(ResourceMetadataFactoryInterface $resourceMetadataFactory, bool $forceEager = true)
+    private $resourceClassResolver;
+
+    public function __construct(ResourceMetadataFactoryInterface $resourceMetadataFactory, bool $forceEager = true, ResourceClassResolverInterface $resourceClassResolver = null)
     {
         $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->forceEager = $forceEager;
+        $this->resourceClassResolver = $resourceClassResolver;
     }
 
     /**
@@ -72,8 +76,16 @@ final class FilterEagerLoadingExtension implements ContextAwareQueryCollectionEx
         if (!$classMetadata->isIdentifierComposite) {
             $replacementAlias = $queryNameGenerator->generateJoinAlias($originAlias);
             $in = $this->getQueryBuilderWithNewAliases($queryBuilder, $queryNameGenerator, $originAlias, $replacementAlias);
-            $in->select($replacementAlias);
-            $queryBuilderClone->andWhere($queryBuilderClone->expr()->in($originAlias, $in->getDQL()));
+
+            if ($classMetadata->containsForeignIdentifier) {
+                $identifier = current($classMetadata->getIdentifier());
+                $in->select("IDENTITY($replacementAlias.$identifier)");
+                $queryBuilderClone->andWhere($queryBuilderClone->expr()->in("$originAlias.$identifier", $in->getDQL()));
+            } else {
+                $in->select($replacementAlias);
+                $queryBuilderClone->andWhere($queryBuilderClone->expr()->in($originAlias, $in->getDQL()));
+            }
+
             $changedWhereClause = true;
         } else {
             // Because Doctrine doesn't support WHERE ( foo, bar ) IN () (https://github.com/doctrine/doctrine2/issues/5238), we are building as many subqueries as they are identifiers
@@ -103,10 +115,8 @@ final class FilterEagerLoadingExtension implements ContextAwareQueryCollectionEx
      *
      * @param string $originAlias the base alias
      * @param string $replacement the replacement for the base alias, will change the from alias
-     *
-     * @return QueryBuilder
      */
-    private function getQueryBuilderWithNewAliases(QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $originAlias = 'o', string $replacement = 'o_2')
+    private function getQueryBuilderWithNewAliases(QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $originAlias = 'o', string $replacement = 'o_2'): QueryBuilder
     {
         $queryBuilderClone = clone $queryBuilder;
 
@@ -134,14 +144,24 @@ final class FilterEagerLoadingExtension implements ContextAwareQueryCollectionEx
             $joinString = str_replace($aliases, $replacements, $joinPart->getJoin());
             $pos = strpos($joinString, '.');
             if (false === $pos) {
+                if (null !== $joinPart->getCondition() && null !== $this->resourceClassResolver && $this->resourceClassResolver->isResourceClass($joinString)) {
+                    $newAlias = $queryNameGenerator->generateJoinAlias($joinPart->getAlias());
+                    $aliases[] = "{$joinPart->getAlias()}.";
+                    $replacements[] = "$newAlias.";
+                    $condition = str_replace($aliases, $replacements, $joinPart->getCondition());
+                    $join = new Join($joinPart->getJoinType(), $joinPart->getJoin(), $newAlias, $joinPart->getConditionType(), $condition);
+                    $queryBuilderClone->add('join', [$replacement => $join], true);
+                }
+
                 continue;
             }
             $alias = substr($joinString, 0, $pos);
             $association = substr($joinString, $pos + 1);
-            $condition = str_replace($aliases, $replacements, $joinPart->getCondition());
-            $newAlias = QueryBuilderHelper::addJoinOnce($queryBuilderClone, $queryNameGenerator, $alias, $association, $joinPart->getJoinType(), $joinPart->getConditionType(), $condition, $originAlias);
+            $newAlias = $queryNameGenerator->generateJoinAlias($association);
             $aliases[] = "{$joinPart->getAlias()}.";
             $replacements[] = "$newAlias.";
+            $condition = str_replace($aliases, $replacements, $joinPart->getCondition() ?? '');
+            QueryBuilderHelper::addJoinOnce($queryBuilderClone, $queryNameGenerator, $alias, $association, $joinPart->getJoinType(), $joinPart->getConditionType(), $condition, $originAlias, $newAlias);
         }
 
         $queryBuilderClone->add('where', str_replace($aliases, $replacements, (string) $wherePart));

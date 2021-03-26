@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Symfony\Validator\Metadata\Property;
 
+use ApiPlatform\Core\Bridge\Symfony\Validator\Metadata\Property\Restriction\PropertySchemaRestrictionMetadataInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use Symfony\Component\Validator\Constraint;
@@ -29,9 +30,11 @@ use Symfony\Component\Validator\Constraints\Isbn;
 use Symfony\Component\Validator\Constraints\Issn;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotNull;
+use Symfony\Component\Validator\Constraints\Sequentially;
 use Symfony\Component\Validator\Constraints\Time;
 use Symfony\Component\Validator\Constraints\Url;
 use Symfony\Component\Validator\Constraints\Uuid;
+use Symfony\Component\Validator\Mapping\ClassMetadataInterface as ValidatorClassMetadataInterface;
 use Symfony\Component\Validator\Mapping\Factory\MetadataFactoryInterface as ValidatorMetadataFactoryInterface;
 use Symfony\Component\Validator\Mapping\PropertyMetadataInterface as ValidatorPropertyMetadataInterface;
 
@@ -45,9 +48,9 @@ final class ValidatorPropertyMetadataFactory implements PropertyMetadataFactoryI
     /**
      * @var string[] A list of constraint classes making the entity required
      */
-    const REQUIRED_CONSTRAINTS = [NotBlank::class, NotNull::class];
+    public const REQUIRED_CONSTRAINTS = [NotBlank::class, NotNull::class];
 
-    const SCHEMA_MAPPED_CONSTRAINTS = [
+    public const SCHEMA_MAPPED_CONSTRAINTS = [
         Url::class => 'http://schema.org/url',
         Email::class => 'http://schema.org/email',
         Uuid::class => 'http://schema.org/identifier',
@@ -66,11 +69,19 @@ final class ValidatorPropertyMetadataFactory implements PropertyMetadataFactoryI
 
     private $decorated;
     private $validatorMetadataFactory;
+    /**
+     * @var iterable<PropertySchemaRestrictionMetadataInterface>
+     */
+    private $restrictionsMetadata;
 
-    public function __construct(ValidatorMetadataFactoryInterface $validatorMetadataFactory, PropertyMetadataFactoryInterface $decorated)
+    /**
+     * @param PropertySchemaRestrictionMetadataInterface[] $restrictionsMetadata
+     */
+    public function __construct(ValidatorMetadataFactoryInterface $validatorMetadataFactory, PropertyMetadataFactoryInterface $decorated, iterable $restrictionsMetadata = [])
     {
         $this->validatorMetadataFactory = $validatorMetadataFactory;
         $this->decorated = $decorated;
+        $this->restrictionsMetadata = $restrictionsMetadata;
     }
 
     /**
@@ -82,18 +93,23 @@ final class ValidatorPropertyMetadataFactory implements PropertyMetadataFactoryI
 
         $required = $propertyMetadata->isRequired();
         $iri = $propertyMetadata->getIri();
+        $schema = $propertyMetadata->getSchema();
 
-        if (null !== $required && null !== $iri) {
+        if (null !== $required && null !== $iri && null !== $schema) {
             return $propertyMetadata;
         }
 
         $validatorClassMetadata = $this->validatorMetadataFactory->getMetadataFor($resourceClass);
-        foreach ($validatorClassMetadata->getPropertyMetadata($name) as $validatorPropertyMetadata) {
-            if (null === $required && isset($options['validation_groups'])) {
-                $required = $this->isRequiredByGroups($validatorPropertyMetadata, $options);
-            }
 
-            foreach ($validatorPropertyMetadata->findConstraints($validatorClassMetadata->getDefaultGroup()) as $constraint) {
+        if (!$validatorClassMetadata instanceof ValidatorClassMetadataInterface) {
+            throw new \UnexpectedValueException(sprintf('Validator class metadata expected to be of type "%s".', ValidatorClassMetadataInterface::class));
+        }
+
+        $validationGroups = $this->getValidationGroups($validatorClassMetadata, $options);
+        $restrictions = [];
+
+        foreach ($validatorClassMetadata->getPropertyMetadata($name) as $validatorPropertyMetadata) {
+            foreach ($this->getPropertyConstraints($validatorPropertyMetadata, $validationGroups) as $constraint) {
                 if (null === $required && $this->isRequired($constraint)) {
                     $required = true;
                 }
@@ -102,33 +118,68 @@ final class ValidatorPropertyMetadataFactory implements PropertyMetadataFactoryI
                     $iri = self::SCHEMA_MAPPED_CONSTRAINTS[\get_class($constraint)] ?? null;
                 }
 
-                if (null !== $required && null !== $iri) {
-                    break 2;
+                foreach ($this->restrictionsMetadata as $restrictionMetadata) {
+                    if ($restrictionMetadata->supports($constraint, $propertyMetadata)) {
+                        $restrictions[] = $restrictionMetadata->create($constraint, $propertyMetadata);
+                    }
                 }
             }
         }
 
-        return $propertyMetadata->withIri($iri)->withRequired($required ?? false);
+        $propertyMetadata = $propertyMetadata->withIri($iri)->withRequired($required ?? false);
+
+        if (!empty($restrictions)) {
+            if (null === $schema) {
+                $schema = [];
+            }
+
+            $schema += array_merge(...$restrictions);
+            $propertyMetadata = $propertyMetadata->withSchema($schema);
+        }
+
+        return $propertyMetadata;
+    }
+
+    /**
+     * Returns the list of validation groups.
+     */
+    private function getValidationGroups(ValidatorClassMetadataInterface $classMetadata, array $options): array
+    {
+        if (isset($options['validation_groups'])) {
+            return $options['validation_groups'];
+        }
+
+        if (!method_exists($classMetadata, 'getDefaultGroup')) {
+            throw new \UnexpectedValueException(sprintf('Validator class metadata expected to have method "%s".', 'getDefaultGroup'));
+        }
+
+        return [$classMetadata->getDefaultGroup()];
     }
 
     /**
      * Tests if the property is required because of its validation groups.
      */
-    private function isRequiredByGroups(ValidatorPropertyMetadataInterface $validatorPropertyMetadata, array $options): bool
-    {
-        foreach ($options['validation_groups'] as $validationGroup) {
+    private function getPropertyConstraints(
+        ValidatorPropertyMetadataInterface $validatorPropertyMetadata,
+        array $groups
+    ): array {
+        $constraints = [];
+
+        foreach ($groups as $validationGroup) {
             if (!\is_string($validationGroup)) {
                 continue;
             }
 
-            foreach ($validatorPropertyMetadata->findConstraints($validationGroup) as $constraint) {
-                if ($this->isRequired($constraint)) {
-                    return true;
+            foreach ($validatorPropertyMetadata->findConstraints($validationGroup) as $propertyConstraint) {
+                if ($propertyConstraint instanceof Sequentially) {
+                    $constraints[] = $propertyConstraint->getNestedContraints();
+                } else {
+                    $constraints[] = [$propertyConstraint];
                 }
             }
         }
 
-        return false;
+        return array_merge([], ...$constraints);
     }
 
     /**

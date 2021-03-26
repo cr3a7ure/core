@@ -14,7 +14,7 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\JsonApi\EventListener;
 
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 /**
  * @see http://jsonapi.org/format/#fetching-sparse-fieldsets
@@ -31,30 +31,25 @@ final class TransformFieldsetsParametersListener
         $this->resourceMetadataFactory = $resourceMetadataFactory;
     }
 
-    public function onKernelRequest(GetResponseEvent $event)
+    public function onKernelRequest(RequestEvent $event): void
     {
         $request = $event->getRequest();
 
-        $includeParameter = $request->query->get('include');
-        if (
-            'jsonapi' !== $request->getRequestFormat() ||
-            !($resourceClass = $request->attributes->get('_api_resource_class')) ||
-            (!($fieldsParameter = $request->query->get('fields')) && !$includeParameter)
-        ) {
-            return;
-        }
+        $queryParameters = $request->query->all();
+        $includeParameter = $queryParameters['include'] ?? null;
+        $fieldsParameter = $queryParameters['fields'] ?? null;
 
         if (
+            (!$fieldsParameter && !$includeParameter) ||
             ($fieldsParameter && !\is_array($fieldsParameter)) ||
-            ($includeParameter && !\is_string($includeParameter))
+            (!\is_string($includeParameter)) ||
+            'jsonapi' !== $request->getRequestFormat() ||
+            !($resourceClass = $request->attributes->get('_api_resource_class'))
         ) {
             return;
         }
-
-        $properties = [];
 
         $includeParameter = explode(',', $includeParameter ?? '');
-
         if (!$fieldsParameter) {
             $request->attributes->set('_api_included', $includeParameter);
 
@@ -63,6 +58,7 @@ final class TransformFieldsetsParametersListener
 
         $resourceShortName = $this->resourceMetadataFactory->create($resourceClass)->getShortName();
 
+        $properties = [];
         foreach ($fieldsParameter as $resourceType => $fields) {
             $fields = explode(',', $fields);
 

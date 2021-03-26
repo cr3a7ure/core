@@ -14,18 +14,21 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Tests\JsonApi\EventListener;
 
 use ApiPlatform\Core\JsonApi\EventListener\TransformSortingParametersListener;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 /**
  * @author Baptiste Meyer <baptiste.meyer@gmail.com>
  */
 class TransformSortingParametersListenerTest extends TestCase
 {
+    use ProphecyTrait;
+
     private $listener;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->listener = new TransformSortingParametersListener();
     }
@@ -37,7 +40,7 @@ class TransformSortingParametersListenerTest extends TestCase
 
         $request = $expectedRequest->duplicate();
 
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
         $eventProphecy->getRequest()->willReturn($request)->shouldBeCalled();
 
         $this->listener->onKernelRequest($eventProphecy->reveal());
@@ -47,7 +50,7 @@ class TransformSortingParametersListenerTest extends TestCase
 
     public function testOnKernelRequestWithInvalidFilter()
     {
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
 
         $expectedRequest = new Request();
         $expectedRequest->setRequestFormat('jsonapi');
@@ -72,7 +75,7 @@ class TransformSortingParametersListenerTest extends TestCase
         $request = new Request(['sort' => 'foo,-bar,-baz,qux']);
         $request->setRequestFormat('jsonapi');
 
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
         $eventProphecy->getRequest()->willReturn($request)->shouldBeCalled();
 
         $this->listener->onKernelRequest($eventProphecy->reveal());

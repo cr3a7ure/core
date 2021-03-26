@@ -30,17 +30,22 @@ class FourthLevel
     /**
      * @var int The id
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      */
     private $id;
 
     /**
      * @var int
      *
-     * @ODM\Field(type="integer")
+     * @ODM\Field(type="int")
      * @Groups({"barcelona", "chicago"})
      */
     private $level = 4;
+
+    /**
+     * @ODM\ReferenceMany(targetDocument=ThirdLevel::class, cascade={"persist"}, mappedBy="badFourthLevel", storeAs="id")
+     */
+    public $badThirdLevel;
 
     /**
      * @return int

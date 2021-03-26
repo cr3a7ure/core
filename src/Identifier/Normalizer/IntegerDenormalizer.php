@@ -19,6 +19,11 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 
 final class IntegerDenormalizer implements DenormalizerInterface, CacheableSupportsMethodInterface
 {
+    /**
+     * {@inheritdoc}
+     *
+     * @phpstan-ignore-next-line this is a real problem, the parent interface cannot return int, but it's hard to fix, we'll try in v3
+     */
     public function denormalize($data, $class, $format = null, array $context = []): int
     {
         return (int) $data;

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Tests\Fixtures\TestBundle\Document;
 
+use ApiPlatform\Core\Annotation\ApiProperty;
 use ApiPlatform\Core\Annotation\ApiResource;
 use ApiPlatform\Core\Annotation\ApiSubresource;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -32,9 +33,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 class RelatedDummy extends ParentDummy
 {
     /**
+     * @ApiProperty(writable=false)
      * @ApiSubresource
-     * @ODM\Id(strategy="INCREMENT", type="integer")
-     * @Groups({"friends"})
+     * @ODM\Id(strategy="INCREMENT", type="int")
+     * @Groups({"chicago", "friends"})
      */
     private $id;
 
@@ -75,16 +77,10 @@ class RelatedDummy extends ParentDummy
      */
     public $relatedToDummyFriend;
 
-    public function __construct()
-    {
-        $this->relatedToDummyFriend = new ArrayCollection();
-        $this->embeddedDummy = new EmbeddableDummy();
-    }
-
     /**
      * @var bool A dummy bool
      *
-     * @ODM\Field(type="boolean")
+     * @ODM\Field(type="bool")
      * @Groups({"friends"})
      */
     public $dummyBoolean;
@@ -96,6 +92,12 @@ class RelatedDummy extends ParentDummy
      * @Groups({"friends"})
      */
     public $embeddedDummy;
+
+    public function __construct()
+    {
+        $this->relatedToDummyFriend = new ArrayCollection();
+        $this->embeddedDummy = new EmbeddableDummy();
+    }
 
     public function getId()
     {

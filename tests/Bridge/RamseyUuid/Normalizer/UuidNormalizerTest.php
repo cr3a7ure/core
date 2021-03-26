@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Tests\Bridge\RamseyUuid\Normalizer;
 
 use ApiPlatform\Core\Bridge\RamseyUuid\Identifier\Normalizer\UuidNormalizer;
+use ApiPlatform\Core\Exception\InvalidIdentifierException;
 use PHPUnit\Framework\TestCase;
 use Ramsey\Uuid\Uuid;
 
@@ -36,11 +37,18 @@ class UuidNormalizerTest extends TestCase
 
     public function testFailDenormalizeUuid()
     {
-        $this->expectException(\ApiPlatform\Core\Exception\InvalidIdentifierException::class);
+        $this->expectException(InvalidIdentifierException::class);
 
         $uuid = 'notanuuid';
         $normalizer = new UuidNormalizer();
         $this->assertTrue($normalizer->supportsDenormalization($uuid, Uuid::class));
         $normalizer->denormalize($uuid, Uuid::class);
+    }
+
+    public function testDoNotSupportNotString()
+    {
+        $uuid = Uuid::uuid4();
+        $normalizer = new UuidNormalizer();
+        $this->assertFalse($normalizer->supportsDenormalization($uuid, Uuid::class));
     }
 }

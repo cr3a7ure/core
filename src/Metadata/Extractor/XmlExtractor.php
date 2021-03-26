@@ -25,7 +25,7 @@ use Symfony\Component\Config\Util\XmlUtils;
  */
 final class XmlExtractor extends AbstractExtractor
 {
-    const RESOURCE_SCHEMA = __DIR__.'/../schema/metadata.xsd';
+    public const RESOURCE_SCHEMA = __DIR__.'/../schema/metadata.xsd';
 
     /**
      * {@inheritdoc}
@@ -59,27 +59,25 @@ final class XmlExtractor extends AbstractExtractor
 
     /**
      * Returns the array containing configured operations. Returns NULL if there is no operation configuration.
-     *
-     * @return array|null
      */
-    private function getOperations(\SimpleXMLElement $resource, string $operationType)
+    private function getOperations(\SimpleXMLElement $resource, string $operationType): ?array
     {
         $graphql = 'operation' === $operationType;
         if (!$graphql && $legacyOperations = $this->getAttributes($resource, $operationType)) {
             @trigger_error(
                 sprintf('Configuring "%1$s" tags without using a parent "%1$ss" tag is deprecated since API Platform 2.1 and will not be possible anymore in API Platform 3', $operationType),
-                E_USER_DEPRECATED
+                \E_USER_DEPRECATED
             );
 
             return $legacyOperations;
         }
 
         $operationsParent = $graphql ? 'graphql' : "{$operationType}s";
-        if (!isset($resource->$operationsParent)) {
+        if (!isset($resource->{$operationsParent})) {
             return null;
         }
 
-        return $this->getAttributes($resource->$operationsParent, $operationType, true);
+        return $this->getAttributes($resource->{$operationsParent}, $operationType, true);
     }
 
     /**
@@ -88,7 +86,7 @@ final class XmlExtractor extends AbstractExtractor
     private function getAttributes(\SimpleXMLElement $resource, string $elementName, bool $topLevel = false): array
     {
         $attributes = [];
-        foreach ($resource->$elementName as $attribute) {
+        foreach ($resource->{$elementName} as $attribute) {
             $value = isset($attribute->attribute[0]) ? $this->getAttributes($attribute, 'attribute') : XmlUtils::phpize($attribute);
             // allow empty operations definition, like <collectionOperation name="post" />
             if ($topLevel && '' === $value) {
@@ -124,7 +122,7 @@ final class XmlExtractor extends AbstractExtractor
                 'attributes' => $this->getAttributes($property, 'attribute'),
                 'subresource' => $property->subresource ? [
                     'collection' => $this->phpize($property->subresource, 'collection', 'bool'),
-                    'resourceClass' => $this->phpize($property->subresource, 'resourceClass', 'string'),
+                    'resourceClass' => $this->resolve($this->phpize($property->subresource, 'resourceClass', 'string')),
                     'maxDepth' => $this->phpize($property->subresource, 'maxDepth', 'integer'),
                 ] : null,
             ];

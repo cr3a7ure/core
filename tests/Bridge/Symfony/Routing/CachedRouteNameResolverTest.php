@@ -17,6 +17,7 @@ use ApiPlatform\Core\Api\OperationType;
 use ApiPlatform\Core\Bridge\Symfony\Routing\CachedRouteNameResolver;
 use ApiPlatform\Core\Bridge\Symfony\Routing\RouteNameResolverInterface;
 use ApiPlatform\Core\Exception\InvalidArgumentException;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Psr\Cache\CacheException;
@@ -28,6 +29,8 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 class CachedRouteNameResolverTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testConstruct()
     {
         $cacheItemPoolProphecy = $this->prophesize(CacheItemPoolInterface::class);
@@ -159,11 +162,10 @@ class CachedRouteNameResolverTest extends TestCase
 
     public function testGetRouteNameWithCacheItemThrowsCacheException()
     {
-        $cacheException = $this->prophesize(CacheException::class);
-        $cacheException->willExtend(\Exception::class);
+        $cacheException = new class() extends \Exception implements CacheException {};
 
         $cacheItemPool = $this->prophesize(CacheItemPoolInterface::class);
-        $cacheItemPool->getItem(Argument::type('string'))->shouldBeCalledTimes(1)->willThrow($cacheException->reveal());
+        $cacheItemPool->getItem(Argument::type('string'))->shouldBeCalledTimes(1)->willThrow($cacheException);
 
         $decoratedProphecy = $this->prophesize(RouteNameResolverInterface::class);
         $decoratedProphecy->getRouteName('AppBundle\Entity\User', OperationType::ITEM, [])->willReturn('some_item_route')->shouldBeCalledTimes(1);

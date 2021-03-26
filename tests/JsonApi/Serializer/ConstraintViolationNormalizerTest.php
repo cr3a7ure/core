@@ -18,6 +18,7 @@ use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\RelatedDummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyInfo\Type;
 use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
@@ -29,6 +30,8 @@ use Symfony\Component\Validator\ConstraintViolationList;
  */
 class ConstraintViolationNormalizerTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testSupportNormalization()
     {
         $propertyMetadataFactoryProphecy = $this->prophesize(PropertyMetadataFactoryInterface::class);
@@ -45,12 +48,12 @@ class ConstraintViolationNormalizerTest extends TestCase
     public function testNormalize()
     {
         $propertyMetadataFactoryProphecy = $this->prophesize(PropertyMetadataFactoryInterface::class);
-        $propertyMetadataFactoryProphecy->create(Dummy::class, 'relatedDummy')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_OBJECT, false, RelatedDummy::class)))->shouldBeCalled(1);
-        $propertyMetadataFactoryProphecy->create(Dummy::class, 'name')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING)))->shouldBeCalled(1);
+        $propertyMetadataFactoryProphecy->create(Dummy::class, 'relatedDummy')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_OBJECT, false, RelatedDummy::class)))->shouldBeCalledTimes(1);
+        $propertyMetadataFactoryProphecy->create(Dummy::class, 'name')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING)))->shouldBeCalledTimes(1);
 
         $nameConverterProphecy = $this->prophesize(NameConverterInterface::class);
-        $nameConverterProphecy->normalize('relatedDummy')->willReturn('relatedDummy')->shouldBeCalled(1);
-        $nameConverterProphecy->normalize('name')->willReturn('name')->shouldBeCalled(1);
+        $nameConverterProphecy->normalize('relatedDummy', Dummy::class, 'jsonapi')->willReturn('relatedDummy')->shouldBeCalledTimes(1);
+        $nameConverterProphecy->normalize('name', Dummy::class, 'jsonapi')->willReturn('name')->shouldBeCalledTimes(1);
 
         $dummy = new Dummy();
 

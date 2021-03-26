@@ -26,8 +26,8 @@ use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
  *
  * @ApiResource(
  *     attributes={
- *         "input_class"=InputDto::class,
- *         "output_class"=false
+ *         "input"=InputDto::class,
+ *         "output"=false
  *     }
  * )
  */
@@ -36,7 +36,7 @@ class DummyDtoNoOutput
     /**
      * @var int The id
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      */
     private $id;
 

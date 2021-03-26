@@ -37,7 +37,8 @@ use Symfony\Component\Serializer\Annotation\Groups;
  *         }
  *     },
  *     graphql={
- *         "query"={"normalization_context"={"groups"={"dummy_foo"}}},
+ *         "item_query"={"normalization_context"={"groups"={"dummy_foo"}}},
+ *         "collection_query"={"normalization_context"={"groups"={"dummy_foo"}}},
  *         "delete",
  *         "create"={
  *             "normalization_context"={"groups"={"dummy_bar"}},
@@ -51,7 +52,7 @@ class DummyGroup
     /**
      * @var int
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      *
      * @Groups({"dummy", "dummy_read", "dummy_id"})
      */

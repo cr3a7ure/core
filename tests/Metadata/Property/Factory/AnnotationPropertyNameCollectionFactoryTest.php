@@ -19,21 +19,24 @@ use ApiPlatform\Core\Metadata\Property\Factory\AnnotationPropertyNameCollectionF
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyNameCollection;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\DummyPhp8;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\UpperCaseIdentifierDummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use Doctrine\Common\Annotations\Reader;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
-use Prophecy\Prophecy\ObjectProphecy;
 
 /**
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
 class AnnotationPropertyNameCollectionFactoryTest extends TestCase
 {
+    use ProphecyTrait;
+
     /**
      * @dataProvider dependenciesProvider
      */
-    public function testCreate(PropertyNameCollectionFactoryInterface $decorated = null, array $results)
+    public function testCreate($decorated, array $results)
     {
         $reader = $this->prophesize(Reader::class);
         $reader->getPropertyAnnotation(new \ReflectionProperty(Dummy::class, 'name'), ApiProperty::class)->willReturn(new ApiProperty())->shouldBeCalled();
@@ -43,8 +46,8 @@ class AnnotationPropertyNameCollectionFactoryTest extends TestCase
         $reader->getMethodAnnotation(new \ReflectionMethod(Dummy::class, 'staticMethod'), ApiProperty::class)->shouldNotBeCalled();
         $reader->getMethodAnnotation(Argument::type(\ReflectionMethod::class), ApiProperty::class)->willReturn(null)->shouldBeCalled();
 
-        $factory = new AnnotationPropertyNameCollectionFactory($reader->reveal(), $decorated);
-        $metadata = $factory->create(Dummy::class, []);
+        $factory = new AnnotationPropertyNameCollectionFactory($reader->reveal(), $decorated ? $decorated->reveal() : null);
+        $metadata = $factory->create(Dummy::class);
 
         $this->assertEquals($results, iterator_to_array($metadata));
     }
@@ -59,15 +62,26 @@ class AnnotationPropertyNameCollectionFactoryTest extends TestCase
 
         return [
             [null, ['name', 'alias']],
-            [$decoratedThrowsNotFound->reveal(), ['name', 'alias']],
-            [$decoratedReturnParent->reveal(), ['name', 'alias', 'foo']],
+            [$decoratedThrowsNotFound, ['name', 'alias']],
+            [$decoratedReturnParent, ['name', 'alias', 'foo']],
         ];
+    }
+
+    /**
+     * @requires PHP 8.0
+     */
+    public function testCreateAttribute()
+    {
+        $factory = new AnnotationPropertyNameCollectionFactory();
+        $metadata = $factory->create(DummyPhp8::class);
+
+        $this->assertSame(['id', 'foo'], iterator_to_array($metadata));
     }
 
     /**
      * @dataProvider upperCaseDependenciesProvider
      */
-    public function testUpperCaseCreate(ObjectProphecy $decorated = null, array $results)
+    public function testUpperCaseCreate($decorated, array $results)
     {
         $reader = $this->prophesize(Reader::class);
         $reader->getPropertyAnnotation(new \ReflectionProperty(UpperCaseIdentifierDummy::class, 'name'), ApiProperty::class)->willReturn(new ApiProperty())->shouldBeCalled();
@@ -78,7 +92,7 @@ class AnnotationPropertyNameCollectionFactoryTest extends TestCase
         $reader->getMethodAnnotation(Argument::type(\ReflectionMethod::class), ApiProperty::class)->willReturn(null)->shouldBeCalled();
 
         $factory = new AnnotationPropertyNameCollectionFactory($reader->reveal(), $decorated ? $decorated->reveal() : null);
-        $metadata = $factory->create(UpperCaseIdentifierDummy::class, []);
+        $metadata = $factory->create(UpperCaseIdentifierDummy::class);
 
         $this->assertEquals($results, iterator_to_array($metadata));
     }

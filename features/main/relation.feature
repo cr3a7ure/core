@@ -20,6 +20,7 @@ Feature: Relations support
       "@id": "/third_levels/1",
       "@type": "ThirdLevel",
       "fourthLevel": null,
+      "badFourthLevel": null,
       "id": 1,
       "level": 3,
       "test": true
@@ -364,66 +365,6 @@ Feature: Relations support
     And the response should be in JSON
     And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
 
-  Scenario: Create a new relation (json)
-    When I add "Content-Type" header equal to "application/json"
-    And I send a "POST" request to "/relation_embedders" with body:
-    """
-    {
-      "anotherRelated": {
-        "symfony": "laravel"
-      }
-    }
-    """
-    Then the response status code should be 201
-    And the response should be in JSON
-    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
-    And the JSON should be equal to:
-    """
-    {
-      "@context": "/contexts/RelationEmbedder",
-      "@id": "/relation_embedders/3",
-      "@type": "RelationEmbedder",
-      "krondstadt": "Krondstadt",
-      "anotherRelated": {
-        "@id": "/related_dummies/4",
-        "@type": "https://schema.org/Product",
-        "symfony": "laravel",
-        "thirdLevel": null
-      },
-      "related": null
-    }
-    """
-
-  Scenario: Update the relation with a new one (json)
-    When I add "Content-Type" header equal to "application/json"
-    And I send a "PUT" request to "/relation_embedders/3" with body:
-    """
-    {
-      "anotherRelated": {
-        "symfony": "laravel2"
-      }
-    }
-    """
-    Then the response status code should be 200
-    And the response should be in JSON
-    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
-    And the JSON should be equal to:
-    """
-    {
-      "@context": "/contexts/RelationEmbedder",
-      "@id": "/relation_embedders/3",
-      "@type": "RelationEmbedder",
-      "krondstadt": "Krondstadt",
-      "anotherRelated": {
-        "@id": "/related_dummies/5",
-        "@type": "https://schema.org/Product",
-        "symfony": "laravel2",
-        "thirdLevel": null
-      },
-      "related": null
-    }
-    """
-
   Scenario: Update an embedded relation
     When I add "Content-Type" header equal to "application/ld+json"
     And I send a "PUT" request to "/relation_embedders/2" with body:
@@ -455,44 +396,13 @@ Feature: Relations support
     }
     """
 
-  Scenario: Create a related dummy with a relation (json)
-    When I add "Content-Type" header equal to "application/json"
-    And I send a "POST" request to "/related_dummies" with body:
-    """
-    {"thirdLevel": "1"}
-    """
-    Then the response status code should be 201
-    And the response should be in JSON
-    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
-    And the JSON should be equal to:
-    """
-    {
-      "@context": "/contexts/RelatedDummy",
-      "@id": "/related_dummies/6",
-      "@type": "https://schema.org/Product",
-      "id": 6,
-      "name": null,
-      "symfony": "symfony",
-      "dummyDate": null,
-      "thirdLevel": {
-        "@id": "/third_levels/1",
-        "@type": "ThirdLevel",
-        "fourthLevel": null
-      },
-      "relatedToDummyFriend": [],
-      "dummyBoolean": null,
-      "embeddedDummy": [],
-      "age": null
-    }
-    """
-
   Scenario: Issue #1222
     Given there are people having pets
     When I add "Content-Type" header equal to "application/ld+json"
     And I send a "GET" request to "/people"
-    And the response status code should be 200
+    Then the response status code should be 200
     And the response should be in JSON
-    And the JSON should be equal to:
+    And the JSON should be a superset of:
     """
     {
       "@context": "/contexts/Person",
@@ -505,6 +415,7 @@ Feature: Relations support
           "name": "foo",
           "pets": [
             {
+              "@type": "PersonToPet",
               "pet": {
                 "@id": "/pets/1",
                 "@type": "Pet",
@@ -518,42 +429,66 @@ Feature: Relations support
     }
     """
 
-  Scenario: Passing a (valid) plain identifier on a relation
-    When I add "Content-Type" header equal to "application/json"
-    And I send a "POST" request to "/dummies" with body:
-    """
-    {
-      "relatedDummy": "1",
-      "relatedDummies": ["1"],
-      "name": "Dummy with plain relations"
-    }
-    """
-    Then the response status code should be 201
+  Scenario: Eager load relations should not be duplicated
+    Given there is an order with same customer and recipient
+    When I add "Content-Type" header equal to "application/ld+json"
+    And I send a "GET" request to "/orders"
+    Then the response status code should be 200
     And the response should be in JSON
-    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
     And the JSON should be equal to:
     """
     {
-      "@context":"/contexts/Dummy",
-      "@id":"/dummies/2",
-      "@type":"Dummy",
-      "description":null,
-      "dummy":null,
-      "dummyBoolean":null,
-      "dummyDate":null,
-      "dummyFloat":null,
-      "dummyPrice":null,
-      "relatedDummy":"/related_dummies/1",
-      "relatedDummies":["/related_dummies/1"],
-      "jsonData":[],
-      "arrayData":[],
-      "name_converted":null,
-      "relatedOwnedDummy": null,
-      "relatedOwningDummy": null,
-      "id":2,
-      "name":"Dummy with plain relations",
-      "alias":null,
-      "foo":null
+        "@context": "/contexts/Order",
+        "@id": "/orders",
+        "@type": "hydra:Collection",
+        "hydra:member": [
+            {
+                "@id": "/orders/1",
+                "@type": "Order",
+                "id": 1,
+                "customer": {
+                    "@id": "/customers/1",
+                    "@type": "Customer",
+                    "id": 1,
+                    "name": "customer_name",
+                    "addresses": [
+                        {
+                            "@id": "/addresses/1",
+                            "@type": "Address",
+                            "id": 1,
+                            "name": "foo"
+                        },
+                        {
+                            "@id": "/addresses/2",
+                            "@type": "Address",
+                            "id": 2,
+                            "name": "bar"
+                        }
+                    ]
+                },
+                "recipient": {
+                    "@id": "/customers/1",
+                    "@type": "Customer",
+                    "id": 1,
+                    "name": "customer_name",
+                    "addresses": [
+                        {
+                            "@id": "/addresses/1",
+                            "@type": "Address",
+                            "id": 1,
+                            "name": "foo"
+                        },
+                        {
+                            "@id": "/addresses/2",
+                            "@type": "Address",
+                            "id": 2,
+                            "name": "bar"
+                        }
+                    ]
+                }
+            }
+        ],
+        "hydra:totalItems": 1
     }
     """
 
@@ -568,7 +503,7 @@ Feature: Relations support
     Then the response status code should be 400
     And the response should be in JSON
     And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
-    And the JSON node "hydra:description" should contain "Invalid value provided (invalid IRI?)."
+    And the JSON node "hydra:description" should contain 'Invalid IRI "certainly not an iri and not a plain identifier".'
 
   Scenario: Passing an invalid type to a relation
     When I add "Content-Type" header equal to "application/ld+json"
@@ -581,4 +516,32 @@ Feature: Relations support
     Then the response status code should be 400
     And the response should be in JSON
     And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
-    And the JSON node "hydra:description" should contain "Invalid value provided (invalid IRI?)."
+    And the JSON should be valid according to this schema:
+    """
+    {
+      "type": "object",
+      "properties": {
+        "@context": {
+          "type": "string",
+          "pattern": "^/contexts/Error$"
+        },
+        "@type": {
+          "type": "string",
+          "pattern": "^hydra:Error$"
+        },
+        "hydra:title": {
+          "type": "string",
+          "pattern": "^An error occurred$"
+        },
+        "hydra:description": {
+          "pattern": "^Expected IRI or document for resource \"ApiPlatform\\\\Core\\\\Tests\\\\Fixtures\\\\TestBundle\\\\(Document|Entity)\\\\RelatedDummy\", \"integer\" given.$"
+        }
+      },
+      "required": [
+        "@context",
+        "@type",
+        "hydra:title",
+        "hydra:description"
+      ]
+    }
+    """

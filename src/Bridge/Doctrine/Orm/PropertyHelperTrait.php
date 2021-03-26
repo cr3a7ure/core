@@ -45,10 +45,10 @@ trait PropertyHelperTrait
         if (\func_num_args() > 4) {
             $resourceClass = func_get_arg(4);
         } else {
-            if (__CLASS__ !== \get_class($this)) {
+            if (__CLASS__ !== static::class) {
                 $r = new \ReflectionMethod($this, __FUNCTION__);
                 if (__CLASS__ !== $r->getDeclaringClass()->getName()) {
-                    @trigger_error(sprintf('Method %s() will have a fifth `$resourceClass` argument in version API Platform 3.0. Not defining it is deprecated since API Platform 2.1.', __FUNCTION__), E_USER_DEPRECATED);
+                    @trigger_error(sprintf('Method %s() will have a fifth `$resourceClass` argument in version API Platform 3.0. Not defining it is deprecated since API Platform 2.1.', __FUNCTION__), \E_USER_DEPRECATED);
                 }
             }
             $resourceClass = null;
@@ -57,10 +57,10 @@ trait PropertyHelperTrait
         if (\func_num_args() > 5) {
             $joinType = func_get_arg(5);
         } else {
-            if (__CLASS__ !== \get_class($this)) {
+            if (__CLASS__ !== static::class) {
                 $r = new \ReflectionMethod($this, __FUNCTION__);
                 if (__CLASS__ !== $r->getDeclaringClass()->getName()) {
-                    @trigger_error(sprintf('Method %s() will have a sixth `$joinType` argument in version API Platform 3.0. Not defining it is deprecated since API Platform 2.3.', __FUNCTION__), E_USER_DEPRECATED);
+                    @trigger_error(sprintf('Method %s() will have a sixth `$joinType` argument in version API Platform 3.0. Not defining it is deprecated since API Platform 2.3.', __FUNCTION__), \E_USER_DEPRECATED);
                 }
             }
             $joinType = null;

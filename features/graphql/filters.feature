@@ -30,7 +30,7 @@ Feature: Collections filtering
     When I send the following GraphQL request:
     """
     {
-      dummies(relatedDummy: {exists: true}) {
+      dummies(exists: [{relatedDummy: true}]) {
         edges {
           node {
             id
@@ -52,7 +52,7 @@ Feature: Collections filtering
     When I send the following GraphQL request:
     """
     {
-      dummies(dummyDate: {after: "2015-04-02"}) {
+      dummies(dummyDate: [{after: "2015-04-02"}]) {
         edges {
           node {
             id
@@ -63,7 +63,7 @@ Feature: Collections filtering
     }
     """
     Then the JSON node "data.dummies.edges" should have 1 element
-    And the JSON node "data.dummies.edges[0].node.dummyDate" should be equal to "2015-04-02T00:00:00+00:00"
+    And the JSON node "data.dummies.edges[0].node.dummyDate" should be equal to "2015-04-02"
 
   @createSchema
   Scenario: Retrieve a collection filtered using the search filter
@@ -83,6 +83,51 @@ Feature: Collections filtering
     """
     Then the JSON node "data.dummies.edges" should have 1 element
     And the JSON node "data.dummies.edges[0].node.id" should be equal to "/dummies/2"
+
+  @createSchema
+  Scenario: Retrieve a collection filtered using the search filter and a name converter
+    Given there are 10 dummy objects
+    When I send the following GraphQL request:
+    """
+    {
+      dummies(name_converted: "Converted 2") {
+        edges {
+          node {
+            id
+            name
+            name_converted
+          }
+        }
+      }
+    }
+    """
+    Then the JSON node "data.dummies.edges" should have 1 element
+    And the JSON node "data.dummies.edges[0].node.id" should be equal to "/dummies/2"
+    And the JSON node "data.dummies.edges[0].node.name_converted" should be equal to "Converted 2"
+
+  @createSchema
+  Scenario: Retrieve a collection filtered using the search filter and a name converter
+    Given there are 20 convertedOwner objects with convertedRelated
+    When I send the following GraphQL request:
+    """
+    {
+      convertedOwners(name_converted__name_converted: "Converted 2") {
+        edges {
+          node {
+            id
+            name_converted {
+              name_converted
+            }
+          }
+        }
+      }
+    }
+    """
+    Then the JSON node "data.convertedOwners.edges" should have 2 element
+    And the JSON node "data.convertedOwners.edges[0].node.id" should be equal to "/converted_owners/2"
+    And the JSON node "data.convertedOwners.edges[0].node.name_converted.name_converted" should be equal to "Converted 2"
+    And the JSON node "data.convertedOwners.edges[1].node.id" should be equal to "/converted_owners/20"
+    And the JSON node "data.convertedOwners.edges[1].node.name_converted.name_converted" should be equal to "Converted 20"
 
   @createSchema
   Scenario: Retrieve a collection filtered using the search filter
@@ -107,10 +152,32 @@ Feature: Collections filtering
       }
     }
     """
-    And the JSON node "data.dummies.edges[0].node.relatedDummies.edges" should have 0 elements
+    Then the JSON node "data.dummies.edges[0].node.relatedDummies.edges" should have 0 elements
     And the JSON node "data.dummies.edges[1].node.relatedDummies.edges" should have 0 elements
     And the JSON node "data.dummies.edges[2].node.relatedDummies.edges" should have 1 element
     And the JSON node "data.dummies.edges[2].node.relatedDummies.edges[0].node.name" should be equal to "RelatedDummy13"
+
+  @createSchema
+  Scenario: Use a filter of a nested collection
+    Given there is a DummyCar entity with related colors
+    When I send the following GraphQL request:
+    """
+    {
+      dummyCar(id: "/dummy_cars/1") {
+        id
+        colors(prop: "blue") {
+          edges {
+            node {
+              id
+              prop
+            }
+          }
+        }
+      }
+    }
+    """
+    Then the JSON node "data.dummyCar.colors.edges" should have 1 element
+    And the JSON node "data.dummyCar.colors.edges[0].node.prop" should be equal to "blue"
 
   @createSchema
   Scenario: Retrieve a collection filtered using the related search filter
@@ -119,7 +186,7 @@ Feature: Collections filtering
     When I send the following GraphQL request:
     """
     {
-      dummies(relatedDummies_name: "RelatedDummy31") {
+      dummies(relatedDummies__name: "RelatedDummy31") {
         edges {
           node {
             id
@@ -137,7 +204,7 @@ Feature: Collections filtering
     When I send the following GraphQL request:
     """
     {
-      dummies(order: {relatedDummy_name: "DESC"}) {
+      dummies(order: [{relatedDummy__name: "DESC"}]) {
         edges {
           node {
             name
@@ -156,12 +223,36 @@ Feature: Collections filtering
     And the JSON node "data.dummies.edges[1].node.name" should be equal to "Dummy #1"
 
   @createSchema
+  Scenario: Retrieve a collection ordered correctly given the order of the argument
+    Given there are dummies with similar properties
+    When I send the following GraphQL request:
+    """
+    {
+      dummies(order: [{description: "ASC"}, {name: "ASC"}]) {
+        edges {
+          node {
+            id
+            name
+            description
+          }
+        }
+      }
+    }
+    """
+    Then the response status code should be 200
+    And the header "Content-Type" should be equal to "application/json"
+    And the JSON node "data.dummies.edges[0].node.name" should be equal to "baz"
+    And the JSON node "data.dummies.edges[0].node.description" should be equal to "bar"
+    And the JSON node "data.dummies.edges[1].node.name" should be equal to "foo"
+    And the JSON node "data.dummies.edges[1].node.description" should be equal to "bar"
+
+  @createSchema
   Scenario: Retrieve a collection filtered using the related search filter with two values and exact strategy
     Given there are 3 dummy objects with relatedDummy
     When  I send the following GraphQL request:
     """
     {
-      dummies(relatedDummy_name_list: ["RelatedDummy #1", "RelatedDummy #2"]) {
+      dummies(relatedDummy__name_list: ["RelatedDummy #1", "RelatedDummy #2"]) {
         edges {
           node {
             id

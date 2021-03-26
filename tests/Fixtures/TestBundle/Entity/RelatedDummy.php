@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity;
 
+use ApiPlatform\Core\Annotation\ApiProperty;
 use ApiPlatform\Core\Annotation\ApiResource;
 use ApiPlatform\Core\Annotation\ApiSubresource;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -25,17 +26,18 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  *
- * @ApiResource(iri="https://schema.org/Product", attributes={"normalization_context"={"groups"={"friends"}}, "filters"={"related_dummy.friends"}})
+ * @ApiResource(iri="https://schema.org/Product", attributes={"normalization_context"={"groups"={"friends"}}, "filters"={"related_dummy.friends", "related_dummy.complex_sub_query"}})
  * @ORM\Entity
  */
 class RelatedDummy extends ParentDummy
 {
     /**
+     * @ApiProperty(writable=false)
      * @ApiSubresource
      * @ORM\Column(type="integer")
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="AUTO")
-     * @Groups({"friends"})
+     * @Groups({"chicago", "friends"})
      */
     private $id;
 
@@ -76,11 +78,6 @@ class RelatedDummy extends ParentDummy
      */
     public $relatedToDummyFriend;
 
-    public function __construct()
-    {
-        $this->relatedToDummyFriend = new ArrayCollection();
-    }
-
     /**
      * @var bool A dummy bool
      *
@@ -96,6 +93,12 @@ class RelatedDummy extends ParentDummy
      * @Groups({"friends"})
      */
     public $embeddedDummy;
+
+    public function __construct()
+    {
+        $this->relatedToDummyFriend = new ArrayCollection();
+        $this->embeddedDummy = new EmbeddableDummy();
+    }
 
     public function getId()
     {

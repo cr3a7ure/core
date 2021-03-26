@@ -15,13 +15,20 @@ namespace ApiPlatform\Core\Tests\Bridge\Doctrine\MongoDbOdm;
 
 use ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Paginator;
 use ApiPlatform\Core\Exception\InvalidArgumentException;
+use ApiPlatform\Core\Test\DoctrineMongoDbOdmSetup;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Document\Dummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
+use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Iterator\Iterator;
-use Doctrine\ODM\MongoDB\UnitOfWork;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @group mongodb
+ */
 class PaginatorTest extends TestCase
 {
+    use ProphecyTrait;
+
     /**
      * @dataProvider initializeProvider
      */
@@ -74,6 +81,15 @@ class PaginatorTest extends TestCase
         $this->getPaginatorWithMissingStage(true, true, true, true);
     }
 
+    public function testInitializeWithLimitZeroStageApplied()
+    {
+        $paginator = $this->getPaginator(0, 5, 0, true);
+
+        $this->assertEquals(1, $paginator->getCurrentPage());
+        $this->assertEquals(1, $paginator->getLastPage());
+        $this->assertEquals(0, $paginator->getItemsPerPage());
+    }
+
     public function testInitializeWithNoCount()
     {
         $paginator = $this->getPaginatorWithNoCount();
@@ -90,7 +106,7 @@ class PaginatorTest extends TestCase
         $this->assertSame($paginator->getIterator(), $paginator->getIterator(), 'Iterator should be cached');
     }
 
-    private function getPaginator($firstResult = 1, $maxResults = 15, $totalItems = 42)
+    private function getPaginator($firstResult = 1, $maxResults = 15, $totalItems = 42, $limitZero = false)
     {
         $iterator = $this->prophesize(Iterator::class);
         $pipeline = [
@@ -98,7 +114,7 @@ class PaginatorTest extends TestCase
                 '$facet' => [
                     'results' => [
                         ['$skip' => $firstResult],
-                        ['$limit' => $maxResults],
+                        $limitZero ? ['$match' => [Paginator::LIMIT_ZERO_MARKER_FIELD => Paginator::LIMIT_ZERO_MARKER]] : ['$limit' => $maxResults],
                     ],
                     'count' => [
                         ['$count' => 'count'],
@@ -117,9 +133,11 @@ class PaginatorTest extends TestCase
             ],
         ]);
 
-        $unitOfWork = $this->prophesize(UnitOfWork::class);
+        $fixturesPath = \dirname((string) (new \ReflectionClass(Dummy::class))->getFileName());
+        $config = DoctrineMongoDbOdmSetup::createAnnotationMetadataConfiguration([$fixturesPath], true);
+        $documentManager = DocumentManager::create(null, $config);
 
-        return new Paginator($iterator->reveal(), $unitOfWork->reveal(), Dummy::class, $pipeline);
+        return new Paginator($iterator->reveal(), $documentManager->getUnitOfWork(), Dummy::class, $pipeline);
     }
 
     private function getPaginatorWithMissingStage($facet = false, $results = false, $count = false, $maxResults = false)
@@ -145,9 +163,12 @@ class PaginatorTest extends TestCase
         }
 
         $iterator = $this->prophesize(Iterator::class);
-        $unitOfWork = $this->prophesize(UnitOfWork::class);
 
-        return new Paginator($iterator->reveal(), $unitOfWork->reveal(), Dummy::class, $pipeline);
+        $fixturesPath = \dirname((string) (new \ReflectionClass(Dummy::class))->getFileName());
+        $config = DoctrineMongoDbOdmSetup::createAnnotationMetadataConfiguration([$fixturesPath], true);
+        $documentManager = DocumentManager::create(null, $config);
+
+        return new Paginator($iterator->reveal(), $documentManager->getUnitOfWork(), Dummy::class, $pipeline);
     }
 
     private function getPaginatorWithNoCount($firstResult = 1, $maxResults = 15)
@@ -172,9 +193,12 @@ class PaginatorTest extends TestCase
                 'results' => [],
             ],
         ]);
-        $unitOfWork = $this->prophesize(UnitOfWork::class);
 
-        return new Paginator($iterator->reveal(), $unitOfWork->reveal(), Dummy::class, $pipeline);
+        $fixturesPath = \dirname((string) (new \ReflectionClass(Dummy::class))->getFileName());
+        $config = DoctrineMongoDbOdmSetup::createAnnotationMetadataConfiguration([$fixturesPath], true);
+        $documentManager = DocumentManager::create(null, $config);
+
+        return new Paginator($iterator->reveal(), $documentManager->getUnitOfWork(), Dummy::class, $pipeline);
     }
 
     public function initializeProvider()

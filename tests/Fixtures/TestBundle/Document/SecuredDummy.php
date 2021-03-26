@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Tests\Fixtures\TestBundle\Document;
 
+use ApiPlatform\Core\Annotation\ApiProperty;
 use ApiPlatform\Core\Annotation\ApiResource;
 use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -24,19 +25,26 @@ use Symfony\Component\Validator\Constraints as Assert;
  * @author Alan Poulain <contact@alanpoulain.eu>
  *
  * @ApiResource(
- *     attributes={"access_control"="has_role('ROLE_USER')"},
+ *     attributes={"security"="is_granted('ROLE_USER')"},
  *     collectionOperations={
- *         "get",
- *         "post"={"access_control"="has_role('ROLE_ADMIN')"}
+ *         "get"={"security"="is_granted('ROLE_USER') or is_granted('ROLE_ADMIN')"},
+ *         "get_from_data_provider_generator"={
+ *             "method"="GET",
+ *             "path"="custom_data_provider_generator",
+ *             "security"="is_granted('ROLE_USER')"
+ *         },
+ *         "post"={"security"="is_granted('ROLE_ADMIN')"}
  *     },
  *     itemOperations={
- *         "get"={"access_control"="has_role('ROLE_USER') and object.getOwner() == user"}
+ *         "get"={"security"="is_granted('ROLE_USER') and object.getOwner() == user"},
+ *         "put"={"security_post_denormalize"="is_granted('ROLE_USER') and previous_object.getOwner() == user"},
  *     },
  *     graphql={
- *         "query"={},
+ *         "item_query"={"security"="is_granted('ROLE_USER') and object.getOwner() == user"},
+ *         "collection_query"={"security"="is_granted('ROLE_ADMIN')"},
  *         "delete"={},
- *         "update"={},
- *         "create"={"access_control"="has_role('ROLE_ADMIN')", "access_control_message"="Only admins can create a secured dummy."}
+ *         "update"={"security_post_denormalize"="is_granted('ROLE_USER') and previous_object.getOwner() ==  user"},
+ *         "create"={"security"="is_granted('ROLE_ADMIN')", "security_message"="Only admins can create a secured dummy."}
  *     }
  * )
  * @ODM\Document
@@ -46,7 +54,7 @@ class SecuredDummy
     /**
      * @var int
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      */
     private $id;
 
@@ -64,6 +72,14 @@ class SecuredDummy
      * @ODM\Field
      */
     private $description = '';
+
+    /**
+     * @var string The dummy secret property, only readable/writable by specific users
+     *
+     * @ODM\Field
+     * @ApiProperty(security="is_granted('ROLE_ADMIN')")
+     */
+    private $adminOnlyProperty = '';
 
     /**
      * @var string The owner
@@ -96,6 +112,16 @@ class SecuredDummy
     public function setDescription(string $description)
     {
         $this->description = $description;
+    }
+
+    public function getAdminOnlyProperty(): ?string
+    {
+        return $this->adminOnlyProperty;
+    }
+
+    public function setAdminOnlyProperty(?string $adminOnlyProperty)
+    {
+        $this->adminOnlyProperty = $adminOnlyProperty;
     }
 
     public function getOwner(): string

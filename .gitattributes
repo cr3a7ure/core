@@ -1,0 +1,13 @@
+/.editorconfig export-ignore
+/.gitattributes export-ignore
+/.github export-ignore
+/.gitignore export-ignore
+/.php_cs.dist export-ignore
+/appveyor.yml export-ignore
+/behat.yml.dist export-ignore
+/features export-ignore
+/phpstan.neon.dist export-ignore
+/phpunit.xml.dist export-ignore
+/tests export-ignore
+/update-js.sh export-ignore
+/yarn.lock export-ignore

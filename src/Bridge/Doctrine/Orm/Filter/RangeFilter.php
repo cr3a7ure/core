@@ -22,6 +22,8 @@ use Doctrine\ORM\QueryBuilder;
  * Filters the collection by range.
  *
  * @author Lee Siong Chan <ahlee2326@me.com>
+ *
+ * @final
  */
 class RangeFilter extends AbstractContextAwareFilter implements RangeFilterInterface
 {
@@ -49,7 +51,7 @@ class RangeFilter extends AbstractContextAwareFilter implements RangeFilterInter
         $field = $property;
 
         if ($this->isPropertyNested($property, $resourceClass)) {
-            list($alias, $field) = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator, $resourceClass);
+            [$alias, $field] = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator, $resourceClass);
         }
 
         foreach ($values as $operator => $value) {
@@ -80,8 +82,16 @@ class RangeFilter extends AbstractContextAwareFilter implements RangeFilterInter
             case self::PARAMETER_BETWEEN:
                 $rangeValue = explode('..', $value);
 
-                $rangeValue = $this->normalizeBetweenValues($rangeValue, $field);
+                $rangeValue = $this->normalizeBetweenValues($rangeValue);
                 if (null === $rangeValue) {
+                    return;
+                }
+
+                if ($rangeValue[0] === $rangeValue[1]) {
+                    $queryBuilder
+                        ->andWhere(sprintf('%s.%s = :%s', $alias, $field, $valueParameter))
+                        ->setParameter($valueParameter, $rangeValue[0]);
+
                     return;
                 }
 
@@ -92,7 +102,7 @@ class RangeFilter extends AbstractContextAwareFilter implements RangeFilterInter
 
                 break;
             case self::PARAMETER_GREATER_THAN:
-                $value = $this->normalizeValue($value, $field, $operator);
+                $value = $this->normalizeValue($value, $operator);
                 if (null === $value) {
                     return;
                 }
@@ -103,7 +113,7 @@ class RangeFilter extends AbstractContextAwareFilter implements RangeFilterInter
 
                 break;
             case self::PARAMETER_GREATER_THAN_OR_EQUAL:
-                $value = $this->normalizeValue($value, $field, $operator);
+                $value = $this->normalizeValue($value, $operator);
                 if (null === $value) {
                     return;
                 }
@@ -114,7 +124,7 @@ class RangeFilter extends AbstractContextAwareFilter implements RangeFilterInter
 
                 break;
             case self::PARAMETER_LESS_THAN:
-                $value = $this->normalizeValue($value, $field, $operator);
+                $value = $this->normalizeValue($value, $operator);
                 if (null === $value) {
                     return;
                 }
@@ -125,7 +135,7 @@ class RangeFilter extends AbstractContextAwareFilter implements RangeFilterInter
 
                 break;
             case self::PARAMETER_LESS_THAN_OR_EQUAL:
-                $value = $this->normalizeValue($value, $field, $operator);
+                $value = $this->normalizeValue($value, $operator);
                 if (null === $value) {
                     return;
                 }

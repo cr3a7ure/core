@@ -18,6 +18,8 @@ use ApiPlatform\Core\Test\DoctrineMongoDbOdmFilterTestCase;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\Common\Filter\NumericFilterTestTrait;
 
 /**
+ * @group mongodb
+ *
  * @author Alan Poulain <contact@alanpoulain.eu>
  */
 class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
@@ -57,13 +59,13 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
             ],
             'dummyPrice' => [
                 'property' => 'dummyPrice',
-                'type' => 'int',
+                'type' => 'float',
                 'required' => false,
                 'is_collection' => false,
             ],
             'dummyPrice[]' => [
                 'property' => 'dummyPrice',
-                'type' => 'int',
+                'type' => 'float',
                 'required' => false,
                 'is_collection' => true,
             ],
@@ -79,10 +81,7 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     [
                         [
                             '$match' => [
-                                'dummyPrice' => [
-                                    '$in' => ['21'],
-                                    '$type' => 'int',
-                                ],
+                                'dummyPrice' => 21,
                             ],
                         ],
                     ],
@@ -92,7 +91,7 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
                         [
                             '$match' => [
                                 'dummyPrice' => [
-                                    '$in' => ['21', '22'],
+                                    '$in' => [21, 22],
                                 ],
                             ],
                         ],
@@ -102,10 +101,7 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     [
                         [
                             '$match' => [
-                                'dummyPrice' => [
-                                    '$in' => ['22'],
-                                    '$type' => 'int',
-                                ],
+                                'dummyPrice' => 22,
                             ],
                         ],
                     ],
@@ -120,10 +116,7 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     [
                         [
                             '$match' => [
-                                'dummyPrice' => [
-                                    '$in' => ['-21'],
-                                    '$type' => 'int',
-                                ],
+                                'dummyPrice' => -21,
                             ],
                         ],
                     ],
@@ -135,10 +128,7 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     [
                         [
                             '$match' => [
-                                'dummyPrice' => [
-                                    '$in' => [0],
-                                    '$type' => 'int',
-                                ],
+                                'dummyPrice' => 0,
                             ],
                         ],
                     ],
@@ -158,10 +148,7 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
                         ],
                         [
                             '$match' => [
-                                'relatedDummy_lkup.id' => [
-                                    '$in' => [0],
-                                    '$type' => 'integer',
-                                ],
+                                'relatedDummy_lkup.id' => 0,
                             ],
                         ],
                     ],
@@ -170,10 +157,7 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     [
                         [
                             '$match' => [
-                                'dummyPrice' => [
-                                    '$in' => [10],
-                                    '$type' => 'int',
-                                ],
+                                'dummyPrice' => 10,
                             ],
                         ],
                     ],
@@ -182,10 +166,7 @@ class NumericFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     [
                         [
                             '$match' => [
-                                'dummyPrice' => [
-                                    '$in' => [0],
-                                    '$type' => 'int',
-                                ],
+                                'dummyPrice' => 0,
                             ],
                         ],
                     ],

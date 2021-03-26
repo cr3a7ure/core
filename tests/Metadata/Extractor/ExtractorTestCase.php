@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Tests\Metadata\Extractor;
 
 use ApiPlatform\Core\Metadata\Extractor\ExtractorInterface;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Psr\Container\ContainerInterface;
@@ -25,6 +26,8 @@ use function is_a;
  */
 abstract class ExtractorTestCase extends TestCase
 {
+    use ProphecyTrait;
+
     protected $extractorClass;
 
     final public function testEmptyResources()
@@ -42,8 +45,8 @@ abstract class ExtractorTestCase extends TestCase
         // There is a difference between XML & YAML here for example, one will parse `null` or the lack of value as `null`
         // whilst the other will parse it as an empty array. Since it doesn't affect the processing of those values, there is no
         // real need to fix this.
-        $this->assertTrue([] === $resources['App\Entity\Greeting']['collectionOperations']['post']);
-        $this->assertTrue(['get' => [], 'put' => []] === $resources['App\Entity\Greeting']['itemOperations']);
+        $this->assertSame([], $resources['App\Entity\Greeting']['collectionOperations']['post']);
+        $this->assertSame(['get' => [], 'put' => []], $resources['App\Entity\Greeting']['itemOperations']);
     }
 
     final public function testCorrectResources()
@@ -155,10 +158,11 @@ abstract class ExtractorTestCase extends TestCase
         ], $resources);
     }
 
-    final public function testResourcesParamatersResolution()
+    final public function testResourcesParametersResolution()
     {
         $containerProphecy = $this->prophesize(ContainerInterface::class);
         $containerProphecy->get('dummy_class')->willReturn(\ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy::class);
+        $containerProphecy->getParameter('dummy_related_owned_class')->willReturn(\ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\RelatedOwnedDummy::class);
         $containerProphecy->get('file_config_dummy_class')->willReturn(\ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\FileConfigDummy::class);
 
         $resources = $this->createExtractor([$this->getResourceWithParametersFile()], $containerProphecy->reveal())->getResources();
@@ -173,7 +177,11 @@ abstract class ExtractorTestCase extends TestCase
                 'subresourceOperations' => null,
                 'graphql' => null,
                 'attributes' => null,
-                'properties' => null,
+                'properties' => [
+                    'relatedOwnedDummy' => [
+                        'resourceClass' => \ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\RelatedOwnedDummy::class,
+                    ],
+                ],
             ],
             '\ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\DummyBis' => [
                 'shortName' => null,
@@ -281,10 +289,11 @@ abstract class ExtractorTestCase extends TestCase
         $containerProphecy->get(Argument::cetera())->shouldHaveBeenCalledTimes(2);
     }
 
-    final public function testResourcesParamatersResolutionWithTheSymfonyContainer()
+    final public function testResourcesParametersResolutionWithTheSymfonyContainer()
     {
         $containerProphecy = $this->prophesize(SymfonyContainerInterface::class);
         $containerProphecy->getParameter('dummy_class')->willReturn(\ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy::class);
+        $containerProphecy->getParameter('dummy_related_owned_class')->willReturn(\ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\RelatedOwnedDummy::class);
         $containerProphecy->getParameter('file_config_dummy_class')->willReturn(\ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\FileConfigDummy::class);
 
         $resources = $this->createExtractor([$this->getResourceWithParametersFile()], $containerProphecy->reveal())->getResources();
@@ -299,7 +308,11 @@ abstract class ExtractorTestCase extends TestCase
                 'subresourceOperations' => null,
                 'graphql' => null,
                 'attributes' => null,
-                'properties' => null,
+                'properties' => [
+                    'relatedOwnedDummy' => [
+                        'resourceClass' => \ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\RelatedOwnedDummy::class,
+                    ],
+                ],
             ],
             '\ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\DummyBis' => [
                 'shortName' => null,
@@ -407,7 +420,7 @@ abstract class ExtractorTestCase extends TestCase
         $containerProphecy->getParameter(Argument::cetera())->shouldHaveBeenCalledTimes(2);
     }
 
-    final public function testResourcesParamatersResolutionWithoutAContainer()
+    final public function testResourcesParametersResolutionWithoutAContainer()
     {
         $resources = $this->createExtractor([$this->getResourceWithParametersFile()])->getResources();
 
@@ -421,7 +434,11 @@ abstract class ExtractorTestCase extends TestCase
                 'subresourceOperations' => null,
                 'graphql' => null,
                 'attributes' => null,
-                'properties' => null,
+                'properties' => [
+                    'relatedOwnedDummy' => [
+                        'resourceClass' => '%dummy_related_owned_class%',
+                    ],
+                ],
             ],
             '%dummy_class%Bis' => [
                 'shortName' => null,

@@ -98,7 +98,7 @@ class Dummy
      * @var \DateTime A dummy date
      *
      * @ORM\Column(type="datetime", nullable=true)
-     * @Assert\DateTime
+     * @ApiProperty(iri="http://schema.org/DateTime")
      */
     public $dummyDate;
 
@@ -188,12 +188,12 @@ class Dummy
         $this->id = $id;
     }
 
-    public function setName($name)
+    public function setName(string $name)
     {
         $this->name = $name;
     }
 
-    public function getName()
+    public function getName(): string
     {
         return $this->name;
     }
@@ -218,7 +218,7 @@ class Dummy
         return $this->description;
     }
 
-    public function hasRole($role)
+    public function fooBar($baz)
     {
     }
 

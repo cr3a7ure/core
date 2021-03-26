@@ -34,13 +34,22 @@ final class AttributesExtractor
      */
     public static function extractAttributes(array $attributes): array
     {
-        $result = ['resource_class' => $attributes['_api_resource_class'] ?? null];
-        $result['input_class'] = $attributes['_api_input_class'] ?? $result['resource_class'];
-        $result['output_class'] = $attributes['_api_output_class'] ?? $result['resource_class'];
-
+        $result = ['resource_class' => $attributes['_api_resource_class'] ?? null, 'has_composite_identifier' => $attributes['_api_has_composite_identifier'] ?? false];
         if ($subresourceContext = $attributes['_api_subresource_context'] ?? null) {
             $result['subresource_context'] = $subresourceContext;
         }
+
+        // Normalizing identifiers tuples
+        $identifiers = [];
+        foreach (($attributes['_api_identifiers'] ?? ['id']) as $parameterName => $identifiedBy) {
+            if (\is_string($identifiedBy)) {
+                $identifiers[$identifiedBy] = [$result['resource_class'], $identifiedBy];
+            } else {
+                $identifiers[$parameterName] = $identifiedBy;
+            }
+        }
+
+        $result['identifiers'] = $identifiers;
 
         if (null === $result['resource_class']) {
             return [];
@@ -56,12 +65,17 @@ final class AttributesExtractor
             }
         }
 
+        if ($previousObject = $attributes['previous_data'] ?? null) {
+            $result['previous_data'] = $previousObject;
+        }
+
         if (false === $hasRequestAttributeKey) {
             return [];
         }
 
         $result += [
             'receive' => (bool) ($attributes['_api_receive'] ?? true),
+            'respond' => (bool) ($attributes['_api_respond'] ?? true),
             'persist' => (bool) ($attributes['_api_persist'] ?? true),
         ];
 

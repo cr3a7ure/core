@@ -19,14 +19,17 @@ use ApiPlatform\Core\Exception\PropertyNotFoundException;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Foo;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyInfo\Type;
 
 class FieldDatatypeTraitTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testGetNestedFieldPath()
     {
-        $fieldDatatype = $this->getValidFieldDataType();
+        $fieldDatatype = $this->getValidFieldDatatype();
 
         self::assertSame('foo.bar', $fieldDatatype->getNestedFieldPath(Foo::class, 'foo.bar.baz'));
         self::assertNull($fieldDatatype->getNestedFieldPath(Foo::class, 'baz'));

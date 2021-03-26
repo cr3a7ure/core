@@ -48,7 +48,7 @@ final class ApiPlatformProvider implements AnnotationsProviderInterface
      */
     public function __construct(ResourceNameCollectionFactoryInterface $resourceNameCollectionFactory, NormalizerInterface $documentationNormalizer, ResourceMetadataFactoryInterface $resourceMetadataFactory, $filterLocator, OperationMethodResolverInterface $operationMethodResolver)
     {
-        @trigger_error('The '.__CLASS__.' class is deprecated since version 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.', E_USER_DEPRECATED);
+        @trigger_error('The '.__CLASS__.' class is deprecated since version 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.', \E_USER_DEPRECATED);
 
         $this->setFilterLocator($filterLocator);
 
@@ -64,7 +64,12 @@ final class ApiPlatformProvider implements AnnotationsProviderInterface
     public function getAnnotations(): array
     {
         $resourceNameCollection = $this->resourceNameCollectionFactory->create();
+
         $hydraDoc = $this->documentationNormalizer->normalize(new Documentation($resourceNameCollection));
+        if (!\is_array($hydraDoc)) {
+            throw new \UnexpectedValueException('Expected data to be an array');
+        }
+
         if (empty($hydraDoc)) {
             return [];
         }
@@ -151,10 +156,8 @@ final class ApiPlatformProvider implements AnnotationsProviderInterface
 
     /**
      * Gets Hydra documentation for the given resource.
-     *
-     * @return array|null
      */
-    private function getResourceHydraDoc(array $hydraApiDoc, string $prefixedShortName)
+    private function getResourceHydraDoc(array $hydraApiDoc, string $prefixedShortName): ?array
     {
         if (!isset($hydraApiDoc['hydra:supportedClass']) || !\is_array($hydraApiDoc['hydra:supportedClass'])) {
             return null;

@@ -14,9 +14,12 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\PropertyInfo;
 
 use Doctrine\Common\Collections\Collection;
-use Doctrine\Common\Persistence\Mapping\MappingException;
-use Doctrine\Common\Persistence\ObjectManager;
+use Doctrine\ODM\MongoDB\Mapping\ClassMetadata as MongoDbClassMetadata;
 use Doctrine\ODM\MongoDB\Types\Type as MongoDbType;
+use Doctrine\Persistence\Mapping\ClassMetadata;
+use Doctrine\Persistence\Mapping\MappingException;
+use Doctrine\Persistence\ObjectManager;
+use Symfony\Component\PropertyInfo\PropertyAccessExtractorInterface;
 use Symfony\Component\PropertyInfo\PropertyListExtractorInterface;
 use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
 use Symfony\Component\PropertyInfo\Type;
@@ -29,7 +32,7 @@ use Symfony\Component\PropertyInfo\Type;
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Alan Poulain <contact@alanpoulain.eu>
  */
-final class DoctrineExtractor implements PropertyListExtractorInterface, PropertyTypeExtractorInterface
+final class DoctrineExtractor implements PropertyListExtractorInterface, PropertyTypeExtractorInterface, PropertyAccessExtractorInterface
 {
     private $objectManager;
 
@@ -43,9 +46,7 @@ final class DoctrineExtractor implements PropertyListExtractorInterface, Propert
      */
     public function getProperties($class, array $context = [])
     {
-        try {
-            $metadata = $this->objectManager->getClassMetadata($class);
-        } catch (MappingException $exception) {
+        if (null === $metadata = $this->getMetadata($class)) {
             return null;
         }
 
@@ -57,23 +58,15 @@ final class DoctrineExtractor implements PropertyListExtractorInterface, Propert
      */
     public function getTypes($class, $property, array $context = [])
     {
-        try {
-            $metadata = $this->objectManager->getClassMetadata($class);
-        } catch (MappingException $exception) {
+        if (null === $metadata = $this->getMetadata($class)) {
             return null;
         }
-
-        $reflectionMetadata = new \ReflectionClass($metadata);
 
         if ($metadata->hasAssociation($property)) {
             $class = $metadata->getAssociationTargetClass($property);
 
             if ($metadata->isSingleValuedAssociation($property)) {
-                if ($reflectionMetadata->hasMethod('isNullable')) {
-                    $nullable = $metadata->isNullable($property);
-                } else {
-                    $nullable = false;
-                }
+                $nullable = $metadata instanceof MongoDbClassMetadata && $metadata->isNullable($property);
 
                 return [new Type(Type::BUILTIN_TYPE_OBJECT, $nullable, $class)];
             }
@@ -94,11 +87,13 @@ final class DoctrineExtractor implements PropertyListExtractorInterface, Propert
 
         if ($metadata->hasField($property)) {
             $typeOfField = $metadata->getTypeOfField($property);
-            $nullable = $reflectionMetadata->hasMethod('isNullable') && $metadata->isNullable($property);
+            $nullable = $metadata instanceof MongoDbClassMetadata && $metadata->isNullable($property);
 
             switch ($typeOfField) {
                 case MongoDbType::DATE:
                     return [new Type(Type::BUILTIN_TYPE_OBJECT, $nullable, 'DateTime')];
+                case MongoDbType::DATE_IMMUTABLE:
+                    return [new Type(Type::BUILTIN_TYPE_OBJECT, $nullable, 'DateTimeImmutable')];
                 case MongoDbType::HASH:
                     return [new Type(Type::BUILTIN_TYPE_ARRAY, $nullable, null, true)];
                 case MongoDbType::COLLECTION:
@@ -109,31 +104,41 @@ final class DoctrineExtractor implements PropertyListExtractorInterface, Propert
                     return $builtinType ? [new Type($builtinType, $nullable)] : null;
             }
         }
+
+        return null;
     }
 
     /**
-     * Determines whether an association is nullable.
-     *
-     * @see https://github.com/doctrine/doctrine2/blob/v2.5.4/lib/Doctrine/ORM/Tools/EntityGenerator.php#L1221-L1246
+     * {@inheritdoc}
      */
-    private function isAssociationNullable(array $associationMapping): bool
+    public function isReadable($class, $property, array $context = []): ?bool
     {
-        if (isset($associationMapping['id']) && $associationMapping['id']) {
-            return false;
+        return null;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function isWritable($class, $property, array $context = []): ?bool
+    {
+        if (
+            null === ($metadata = $this->getMetadata($class))
+            || $metadata instanceof MongoDbClassMetadata && MongoDbClassMetadata::GENERATOR_TYPE_NONE === $metadata->generatorType
+            || !\in_array($property, $metadata->getIdentifierFieldNames(), true)
+        ) {
+            return null;
         }
 
-        if (!isset($associationMapping['joinColumns'])) {
-            return true;
-        }
+        return false;
+    }
 
-        $joinColumns = $associationMapping['joinColumns'];
-        foreach ($joinColumns as $joinColumn) {
-            if (isset($joinColumn['nullable']) && !$joinColumn['nullable']) {
-                return false;
-            }
+    private function getMetadata(string $class): ?ClassMetadata
+    {
+        try {
+            return $this->objectManager->getClassMetadata($class);
+        } catch (MappingException $exception) {
+            return null;
         }
-
-        return true;
     }
 
     /**

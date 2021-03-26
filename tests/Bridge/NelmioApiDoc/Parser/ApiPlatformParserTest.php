@@ -24,6 +24,8 @@ use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\RelatedDummy;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\UnknownDummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
+use Doctrine\Common\Collections\Collection;
 use Nelmio\ApiDocBundle\DataTypes;
 use Nelmio\ApiDocBundle\Parser\ParserInterface;
 use PHPUnit\Framework\TestCase;
@@ -39,6 +41,15 @@ use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
  */
 class ApiPlatformParserTest extends TestCase
 {
+    use ProphecyTrait;
+
+    protected function setUp(): void
+    {
+        if (!class_exists(NelmioApiDocBundle::class)) {
+            $this->markTestSkipped('NelmioApiDocBundle is not installed.');
+        }
+    }
+
     /**
      * @expectedDeprecation The ApiPlatform\Core\Bridge\NelmioApiDoc\Parser\ApiPlatformParser class is deprecated since version 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.
      */
@@ -365,7 +376,7 @@ class ApiPlatformParserTest extends TestCase
             ->withRequired(false);
         $propertyMetadataFactoryProphecy->create(Dummy::class, 'relatedDummy')->willReturn($relatedDummyPropertyMetadata)->shouldBeCalled();
         $relatedDummiesPropertyMetadata = (new PropertyMetadata())
-            ->withType(new Type(Type::BUILTIN_TYPE_OBJECT, false, 'Doctrine\Common\Collections\Collection', true, new Type(Type::BUILTIN_TYPE_INT), new Type(Type::BUILTIN_TYPE_OBJECT, false, RelatedDummy::class)))
+            ->withType(new Type(Type::BUILTIN_TYPE_OBJECT, false, Collection::class, true, new Type(Type::BUILTIN_TYPE_INT), new Type(Type::BUILTIN_TYPE_OBJECT, false, RelatedDummy::class)))
             ->withDescription('Several dummies.')
             ->withReadable(true)
             ->withWritable(true)
@@ -452,7 +463,7 @@ class ApiPlatformParserTest extends TestCase
         $propertyMetadataFactory = $propertyMetadataFactoryProphecy->reveal();
 
         $nameConverterProphecy = $this->prophesize(NameConverterInterface::class);
-        $nameConverterProphecy->normalize('nameConverted')->willReturn('name_converted')->shouldBeCalled();
+        $nameConverterProphecy->normalize('nameConverted', Dummy::class)->willReturn('name_converted')->shouldBeCalled();
         $nameConverter = $nameConverterProphecy->reveal();
 
         $apiPlatformParser = new ApiPlatformParser($resourceMetadataFactory, $propertyNameCollectionFactory, $propertyMetadataFactory, $nameConverter);

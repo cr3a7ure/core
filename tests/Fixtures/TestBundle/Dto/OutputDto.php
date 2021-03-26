@@ -13,13 +13,18 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Tests\Fixtures\TestBundle\Dto;
 
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\RelatedDummy;
+
 /**
- * OutputDto.
- *
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
 class OutputDto
 {
+    /**
+     * @var int
+     */
+    public $id;
+
     /**
      * @var float
      */
@@ -29,4 +34,9 @@ class OutputDto
      * @var string
      */
     public $bat;
+
+    /**
+     * @var RelatedDummy[]
+     */
+    public $relatedDummies = [];
 }

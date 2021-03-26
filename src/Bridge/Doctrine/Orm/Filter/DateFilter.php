@@ -25,12 +25,14 @@ use Doctrine\ORM\QueryBuilder;
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Théo FIDRY <theo.fidry@gmail.com>
+ *
+ * @final
  */
 class DateFilter extends AbstractContextAwareFilter implements DateFilterInterface
 {
     use DateFilterTrait;
 
-    const DOCTRINE_DATE_TYPES = [
+    public const DOCTRINE_DATE_TYPES = [
         DBALType::DATE => true,
         DBALType::DATETIME => true,
         DBALType::DATETIMETZ => true,
@@ -60,7 +62,7 @@ class DateFilter extends AbstractContextAwareFilter implements DateFilterInterfa
         $field = $property;
 
         if ($this->isPropertyNested($property, $resourceClass)) {
-            list($alias, $field) = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator, $resourceClass);
+            [$alias, $field] = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator, $resourceClass);
         }
 
         $nullManagement = $this->properties[$property] ?? null;
@@ -128,9 +130,15 @@ class DateFilter extends AbstractContextAwareFilter implements DateFilterInterfa
      *
      * @param string|DBALType $type
      */
-    protected function addWhere(QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $alias, string $field, string $operator, string $value, string $nullManagement = null, $type = null)
+    protected function addWhere(QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $alias, string $field, string $operator, $value, string $nullManagement = null, $type = null)
     {
         $type = (string) $type;
+        $value = $this->normalizeValue($value, $operator);
+
+        if (null === $value) {
+            return;
+        }
+
         try {
             $value = false === strpos($type, '_immutable') ? new \DateTime($value) : new \DateTimeImmutable($value);
         } catch (\Exception $e) {

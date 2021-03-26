@@ -1,6 +1,6 @@
 'use strict';
 
-window.onload = () => {
+window.onload = function() {
     manageWebbyDisplay();
 
     new MutationObserver(function (mutations, self) {
@@ -41,10 +41,11 @@ window.onload = () => {
     }).observe(document, {childList: true, subtree: true});
 
     const data = JSON.parse(document.getElementById('swagger-data').innerText);
-    const ui = SwaggerUIBundle({
+    const ui = SwaggerUIBundle(Object.assign({
         spec: data.spec,
         dom_id: '#swagger-ui',
         validatorUrl: null,
+        oauth2RedirectUrl: data.oauth.redirectUrl,
         presets: [
             SwaggerUIBundle.presets.apis,
             SwaggerUIStandalonePreset,
@@ -53,7 +54,7 @@ window.onload = () => {
             SwaggerUIBundle.plugins.DownloadUrl,
         ],
         layout: 'StandaloneLayout',
-    });
+    }, data.extraConfiguration));
 
     if (data.oauth.enabled) {
         ui.initOAuth({

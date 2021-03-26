@@ -32,12 +32,26 @@ final class PropertyMetadata
     private $iri;
     private $vocabType;
     private $identifier;
+    /**
+     * @deprecated since 2.6, to be removed in 3.0
+     */
     private $childInherited;
     private $attributes;
     private $subresource;
     private $initializable;
+    /**
+     * @var null
+     */
+    private $default;
+    /**
+     * @var null
+     */
+    private $example;
+    private $schema;
 
-    public function __construct(Type $type = null, string $description = null, bool $readable = null, bool $writable = null, bool $readableLink = null, bool $writableLink = null, bool $required = null, bool $identifier = null, string $iri = null, string $vocabType = null, $childInherited = null, array $attributes = null, SubresourceMetadata $subresource = null, bool $initializable = null)
+    # old change
+    #public function __construct(Type $type = null, string $description = null, bool $readable = null, bool $writable = null, bool $readableLink = null, bool $writableLink = null, bool $required = null, bool $identifier = null, string $iri = null, string $vocabType = null, $childInherited = null, array $attributes = null, SubresourceMetadata $subresource = null, bool $initializable = null)
+    public function __construct(Type $type = null, string $description = null, bool $readable = null, bool $writable = null, bool $readableLink = null, bool $writableLink = null, bool $required = null, bool $identifier = null, string $iri = null, string $vocabType = null, $childInherited = null, array $attributes = null, SubresourceMetadata $subresource = null, bool $initializable = null, $default = null, $example = null, array $schema = null)
     {
         $this->type = $type;
         $this->description = $description;
@@ -49,18 +63,22 @@ final class PropertyMetadata
         $this->identifier = $identifier;
         $this->iri = $iri;
         $this->vocabType = $vocabType;
+        if (null !== $childInherited) {
+            @trigger_error(sprintf('Providing a non-null value for the 10th argument ($childInherited) of the "%s" constructor is deprecated since 2.6 and will not be supported in 3.0.', __CLASS__), \E_USER_DEPRECATED);
+        }
         $this->childInherited = $childInherited;
         $this->attributes = $attributes;
         $this->subresource = $subresource;
         $this->initializable = $initializable;
+        $this->default = $default;
+        $this->example = $example;
+        $this->schema = $schema;
     }
 
     /**
      * Gets type.
-     *
-     * @return Type|null
      */
-    public function getType()
+    public function getType(): ?Type
     {
         return $this->type;
     }
@@ -78,20 +96,16 @@ final class PropertyMetadata
 
     /**
      * Gets description.
-     *
-     * @return string|null
      */
-    public function getDescription()
+    public function getDescription(): ?string
     {
         return $this->description;
     }
 
     /**
      * Returns a new instance with the given description.
-     *
-     * @param string $description
      */
-    public function withDescription($description): self
+    public function withDescription(string $description): self
     {
         $metadata = clone $this;
         $metadata->description = $description;
@@ -101,10 +115,8 @@ final class PropertyMetadata
 
     /**
      * Is readable?
-     *
-     * @return bool|null
      */
-    public function isReadable()
+    public function isReadable(): ?bool
     {
         return $this->readable;
     }
@@ -122,10 +134,8 @@ final class PropertyMetadata
 
     /**
      * Is writable?
-     *
-     * @return bool|null
      */
-    public function isWritable()
+    public function isWritable(): ?bool
     {
         return $this->writable;
     }
@@ -143,10 +153,8 @@ final class PropertyMetadata
 
     /**
      * Is required?
-     *
-     * @return bool|null
      */
-    public function isRequired()
+    public function isRequired(): ?bool
     {
         if (true === $this->required && false === $this->writable) {
             return false;
@@ -168,10 +176,8 @@ final class PropertyMetadata
 
     /**
      * Should an IRI or an object be provided in write context?
-     *
-     * @return bool|null
      */
-    public function isWritableLink()
+    public function isWritableLink(): ?bool
     {
         return $this->writableLink;
     }
@@ -189,10 +195,8 @@ final class PropertyMetadata
 
     /**
      * Is an IRI or an object generated in read context?
-     *
-     * @return bool|null
      */
-    public function isReadableLink()
+    public function isReadableLink(): ?bool
     {
         return $this->readableLink;
     }
@@ -210,10 +214,8 @@ final class PropertyMetadata
 
     /**
      * Gets IRI of this property.
-     *
-     * @return string|null
      */
-    public function getIri()
+    public function getIri(): ?string
     {
         return $this->iri;
     }
@@ -256,10 +258,8 @@ final class PropertyMetadata
 
     /**
      * Is this attribute an identifier?
-     *
-     * @return bool|null
      */
-    public function isIdentifier()
+    public function isIdentifier(): ?bool
     {
         return $this->identifier;
     }
@@ -277,24 +277,20 @@ final class PropertyMetadata
 
     /**
      * Gets attributes.
-     *
-     * @return array|null
      */
-    public function getAttributes()
+    public function getAttributes(): ?array
     {
         return $this->attributes;
     }
 
     /**
      * Gets an attribute.
+     *
+     * @param mixed|null $defaultValue
      */
     public function getAttribute(string $key, $defaultValue = null)
     {
-        if (isset($this->attributes[$key])) {
-            return $this->attributes[$key];
-        }
-
-        return $defaultValue;
+        return $this->attributes[$key] ?? $defaultValue;
     }
 
     /**
@@ -309,20 +305,38 @@ final class PropertyMetadata
     }
 
     /**
-     * Is the property inherited from a child class?
-     *
-     * @return string|null
+     * @deprecated since 2.6, to be removed in 3.0
      */
-    public function isChildInherited()
+    public function getChildInherited(): ?string
     {
         return $this->childInherited;
     }
 
     /**
-     * Returns a new instance with the given child inherited class.
+     * @deprecated since 2.6, to be removed in 3.0
+     */
+    public function hasChildInherited(): bool
+    {
+        return null !== $this->childInherited;
+    }
+
+    /**
+     * @deprecated since 2.4, to be removed in 3.0
+     */
+    public function isChildInherited(): ?string
+    {
+        @trigger_error(sprintf('"%s::%s" is deprecated since 2.4 and will be removed in 3.0.', __CLASS__, __METHOD__), \E_USER_DEPRECATED);
+
+        return $this->getChildInherited();
+    }
+
+    /**
+     * @deprecated since 2.6, to be removed in 3.0
      */
     public function withChildInherited(string $childInherited): self
     {
+        @trigger_error(sprintf('"%s::%s" is deprecated since 2.6 and will be removed in 3.0.', __CLASS__, __METHOD__), \E_USER_DEPRECATED);
+
         $metadata = clone $this;
         $metadata->childInherited = $childInherited;
 
@@ -339,10 +353,8 @@ final class PropertyMetadata
 
     /**
      * Gets the subresource metadata.
-     *
-     * @return SubresourceMetadata|null
      */
-    public function getSubresource()
+    public function getSubresource(): ?SubresourceMetadata
     {
         return $this->subresource;
     }
@@ -362,10 +374,8 @@ final class PropertyMetadata
 
     /**
      * Is initializable?
-     *
-     * @return bool|null
      */
-    public function isInitializable()
+    public function isInitializable(): ?bool
     {
         return $this->initializable;
     }
@@ -377,6 +387,63 @@ final class PropertyMetadata
     {
         $metadata = clone $this;
         $metadata->initializable = $initializable;
+
+        return $metadata;
+    }
+
+    /**
+     * Returns the default value of the property or NULL if the property doesn't have a default value.
+     */
+    public function getDefault()
+    {
+        return $this->default;
+    }
+
+    /**
+     * Returns a new instance with the given default value for the property.
+     */
+    public function withDefault($default): self
+    {
+        $metadata = clone $this;
+        $metadata->default = $default;
+
+        return $metadata;
+    }
+
+    /**
+     * Returns an example of the value of the property.
+     */
+    public function getExample()
+    {
+        return $this->example;
+    }
+
+    /**
+     * Returns a new instance with the given example.
+     */
+    public function withExample($example): self
+    {
+        $metadata = clone $this;
+        $metadata->example = $example;
+
+        return $metadata;
+    }
+
+    /**
+     * @return array
+     */
+    public function getSchema(): ?array
+    {
+        return $this->schema;
+    }
+
+    /**
+     * Returns a new instance with the given schema.
+     */
+    public function withSchema(array $schema = null): self
+    {
+        $metadata = clone $this;
+        $metadata->schema = $schema;
 
         return $metadata;
     }

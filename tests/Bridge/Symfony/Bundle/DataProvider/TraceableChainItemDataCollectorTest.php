@@ -35,8 +35,12 @@ class TraceableChainItemDataCollectorTest extends TestCase
         $result = $dataProvider->getProvidersResponse();
         $this->assertCount(\count($expected), $result);
         $this->assertEmpty(array_filter($result, function ($key) {
+            if (\PHP_VERSION_ID >= 80000) {
+                return !str_starts_with($key, ItemDataProviderInterface::class.'@anonymous');
+            }
+
             return 0 !== strpos($key, 'class@anonymous');
-        }, ARRAY_FILTER_USE_KEY));
+        }, \ARRAY_FILTER_USE_KEY));
         $this->assertSame($expected, array_values($result));
         $this->assertSame($context, $dataProvider->getContext());
     }
@@ -53,8 +57,12 @@ class TraceableChainItemDataCollectorTest extends TestCase
         $result = $dataProvider->getProvidersResponse();
         $this->assertCount(\count($expected), $result);
         $this->assertEmpty(array_filter($result, function ($key) {
+            if (\PHP_VERSION_ID >= 80000) {
+                return !str_starts_with($key, ItemDataProviderInterface::class.'@anonymous');
+            }
+
             return 0 !== strpos($key, 'class@anonymous');
-        }, ARRAY_FILTER_USE_KEY));
+        }, \ARRAY_FILTER_USE_KEY));
         $this->assertSame($expected, array_values($result));
         $this->assertSame($context, $dataProvider->getContext());
     }
@@ -65,13 +73,14 @@ class TraceableChainItemDataCollectorTest extends TestCase
             new class() implements ItemDataProviderInterface {
                 public function getItem(string $resourceClass, $id, string $operationName = null, array $context = [])
                 {
+                    return null;
                 }
             },
             ['some_context'],
             [],
         ];
 
-        yield  'Empty ChainItemDataProvider' => [
+        yield 'Empty ChainItemDataProvider' => [
             new ChainItemDataProvider([]),
             ['some_context'],
             [],
@@ -87,11 +96,13 @@ class TraceableChainItemDataCollectorTest extends TestCase
 
                     public function getItem(string $resourceClass, $id, string $operationName = null, array $context = [])
                     {
+                        return null;
                     }
                 },
-                new class() implements RestrictedDataProviderInterface, DenormalizedIdentifiersAwareItemDataProviderInterface {
+                new class() implements ItemDataProviderInterface, RestrictedDataProviderInterface, DenormalizedIdentifiersAwareItemDataProviderInterface {
                     public function getItem(string $resourceClass, /* array */ $id, string $operationName = null, array $context = [])
                     {
+                        return null;
                     }
 
                     public function supports(string $resourceClass, string $operationName = null, array $context = []): bool
@@ -102,6 +113,7 @@ class TraceableChainItemDataCollectorTest extends TestCase
                 new class() implements ItemDataProviderInterface {
                     public function getItem(string $resourceClass, $id, string $operationName = null, array $context = [])
                     {
+                        return null;
                     }
                 },
             ]),
@@ -123,6 +135,7 @@ class TraceableChainItemDataCollectorTest extends TestCase
                 new class() implements ItemDataProviderInterface {
                     public function getItem(string $resourceClass, $id, string $operationName = null, array $context = [])
                     {
+                        return null;
                     }
                 },
             ]),

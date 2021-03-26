@@ -14,7 +14,9 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Tests\Fixtures\TestBundle\Document;
 
 use ApiPlatform\Core\Annotation\ApiResource;
-use ApiPlatform\Core\Tests\Fixtures\TestBundle\Dto\OutputDto;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Controller\DummyDtoNoInput\CreateItemAction;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Controller\DummyDtoNoInput\DoubleBatAction;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Dto\Document\OutputDto;
 use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
 
 /**
@@ -26,9 +28,27 @@ use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
  *
  * @ApiResource(
  *     attributes={
- *         "input_class"=false,
- *         "output_class"=OutputDto::class
- *     }
+ *         "input"=false,
+ *         "output"=OutputDto::class
+ *     },
+ *     collectionOperations={
+ *         "post"={
+ *             "method"="POST",
+ *             "path"="/dummy_dto_no_inputs",
+ *             "controller"=CreateItemAction::class,
+ *         },
+ *         "get",
+ *     },
+ *     itemOperations={
+ *         "get",
+ *         "delete",
+ *         "post_double_bat"={
+ *             "method"="POST",
+ *             "path"="/dummy_dto_no_inputs/{id}/double_bat",
+ *             "controller"=DoubleBatAction::class,
+ *             "status"=200,
+ *         },
+ *     },
  * )
  */
 class DummyDtoNoInput
@@ -36,7 +56,7 @@ class DummyDtoNoInput
     /**
      * @var int The id
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      */
     private $id;
 

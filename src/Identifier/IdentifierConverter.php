@@ -16,57 +16,63 @@ namespace ApiPlatform\Core\Identifier;
 use ApiPlatform\Core\Api\IdentifiersExtractorInterface;
 use ApiPlatform\Core\Exception\InvalidIdentifierException;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use Symfony\Component\PropertyInfo\Type;
+use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 
 /**
  * Identifier converter that chains identifier denormalizers.
  *
  * @author Antoine Bluchet <soyuka@gmail.com>
  */
-final class IdentifierConverter implements IdentifierConverterInterface
+final class IdentifierConverter implements ContextAwareIdentifierConverterInterface
 {
     private $propertyMetadataFactory;
     private $identifiersExtractor;
     private $identifierDenormalizers;
+    private $resourceMetadataFactory;
 
-    public function __construct(IdentifiersExtractorInterface $identifiersExtractor, PropertyMetadataFactoryInterface $propertyMetadataFactory, $identifierDenormalizers)
+    /**
+     * TODO: rename identifierDenormalizers to identifierTransformers in 3.0 and change their interfaces to a IdentifierTransformerInterface.
+     *
+     * @param iterable<DenormalizerInterface> $identifierDenormalizers
+     */
+    public function __construct(IdentifiersExtractorInterface $identifiersExtractor, PropertyMetadataFactoryInterface $propertyMetadataFactory, iterable $identifierDenormalizers, ResourceMetadataFactoryInterface $resourceMetadataFactory = null)
     {
         $this->propertyMetadataFactory = $propertyMetadataFactory;
         $this->identifiersExtractor = $identifiersExtractor;
         $this->identifierDenormalizers = $identifierDenormalizers;
+        $this->resourceMetadataFactory = $resourceMetadataFactory;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function convert(string $data, string $class): array
+    public function convert($data, string $class, array $context = []): array
     {
-        $keys = $this->identifiersExtractor->getIdentifiersFromResourceClass($class);
-
-        if (($numIdentifiers = \count($keys)) > 1) {
-            $identifiers = CompositeIdentifierParser::parse($data);
-        } elseif (0 === $numIdentifiers) {
-            throw new InvalidIdentifierException(sprintf('Resource "%s" has no identifiers.', $class));
-        } else {
-            $identifiers = [$keys[0] => $data];
+        if (!\is_array($data)) {
+            @trigger_error(sprintf('Not using an array as the first argument of "%s->convert" is deprecated since API Platform 2.6 and will not be possible anymore in API Platform 3', self::class), \E_USER_DEPRECATED);
+            $data = ['id' => $data];
         }
 
-        // Normalize every identifier (DateTime, UUID etc.)
-        foreach ($keys as $key) {
-            if (!isset($identifiers[$key])) {
-                throw new InvalidIdentifierException(sprintf('Invalid identifier "%1$s", "%1$s" was not found.', $key));
+        $identifiers = $data;
+
+        foreach ($data as $parameter => $value) {
+            if (null === $type = $this->getIdentifierType($context['identifiers'][$parameter][0] ?? $class, $context['identifiers'][$parameter][1] ?? $parameter)) {
+                continue;
             }
 
-            $metadata = $this->getIdentifierMetadata($class, $key);
-            foreach ($this->identifierDenormalizers as $normalizer) {
-                if (!$normalizer->supportsDenormalization($identifiers[$key], $metadata)) {
+            /* @var DenormalizerInterface[] */
+            foreach ($this->identifierDenormalizers as $identifierTransformer) {
+                if (!$identifierTransformer->supportsDenormalization($value, $type)) {
                     continue;
                 }
 
                 try {
-                    $identifiers[$key] = $normalizer->denormalize($identifiers[$key], $metadata);
+                    $identifiers[$parameter] = $identifierTransformer->denormalize($value, $type);
+                    break;
                 } catch (InvalidIdentifierException $e) {
-                    throw new InvalidIdentifierException(sprintf('Identifier "%s" could not be denormalized.', $key), $e->getCode(), $e);
+                    throw new InvalidIdentifierException(sprintf('Identifier "%s" could not be denormalized.', $parameter), $e->getCode(), $e);
                 }
             }
         }
@@ -74,12 +80,12 @@ final class IdentifierConverter implements IdentifierConverterInterface
         return $identifiers;
     }
 
-    private function getIdentifierMetadata($class, $propertyName)
+    private function getIdentifierType(string $resourceClass, string $property): ?string
     {
-        if (!$type = $this->propertyMetadataFactory->create($class, $propertyName)->getType()) {
+        if (!$type = $this->propertyMetadataFactory->create($resourceClass, $property)->getType()) {
             return null;
         }
 
-        return Type::BUILTIN_TYPE_OBJECT === ($builtInType = $type->getBuiltinType()) ? $type->getClassName() : $builtInType;
+        return Type::BUILTIN_TYPE_OBJECT === ($builtinType = $type->getBuiltinType()) ? $type->getClassName() : $builtinType;
     }
 }

@@ -23,10 +23,11 @@ use ApiPlatform\Core\Exception\RuntimeException;
 use ApiPlatform\Core\Identifier\IdentifierConverterInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
-use Doctrine\Common\Persistence\ManagerRegistry;
-use Doctrine\Common\Persistence\Mapping\ClassMetadata;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\Persistence\Mapping\ClassMetadata;
 
 /**
  * Item data provider for the Doctrine ORM.
@@ -45,17 +46,18 @@ class ItemDataProvider implements DenormalizedIdentifiersAwareItemDataProviderIn
     /**
      * @param QueryItemExtensionInterface[] $itemExtensions
      */
-    public function __construct(ManagerRegistry $managerRegistry, PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, /* iterable */ $itemExtensions = [])
+    public function __construct(ManagerRegistry $managerRegistry, PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, iterable $itemExtensions = [], ResourceMetadataFactoryInterface $resourceMetadataFactory = null)
     {
         $this->managerRegistry = $managerRegistry;
         $this->propertyNameCollectionFactory = $propertyNameCollectionFactory;
         $this->propertyMetadataFactory = $propertyMetadataFactory;
+        $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->itemExtensions = $itemExtensions;
     }
 
     public function supports(string $resourceClass, string $operationName = null, array $context = []): bool
     {
-        return null !== $this->managerRegistry->getManagerForClass($resourceClass);
+        return $this->managerRegistry->getManagerForClass($resourceClass) instanceof EntityManagerInterface;
     }
 
     /**
@@ -67,15 +69,20 @@ class ItemDataProvider implements DenormalizedIdentifiersAwareItemDataProviderIn
      */
     public function getItem(string $resourceClass, $id, string $operationName = null, array $context = [])
     {
+        /** @var EntityManagerInterface $manager */
         $manager = $this->managerRegistry->getManagerForClass($resourceClass);
 
-        if (!\is_array($id) && !($context[IdentifierConverterInterface::HAS_IDENTIFIER_CONVERTER] ?? false)) {
+        if ((\is_int($id) || \is_string($id)) && !($context[IdentifierConverterInterface::HAS_IDENTIFIER_CONVERTER] ?? false)) {
             $id = $this->normalizeIdentifiers($id, $manager, $resourceClass);
         }
+        if (!\is_array($id)) {
+            throw new \InvalidArgumentException(sprintf('$id must be array when "%s" key is set to true in the $context', IdentifierConverterInterface::HAS_IDENTIFIER_CONVERTER));
+        }
+        $identifiers = $id;
 
         $fetchData = $context['fetch_data'] ?? true;
-        if (!$fetchData && $manager instanceof EntityManagerInterface) {
-            return $manager->getReference($resourceClass, $id);
+        if (!$fetchData) {
+            return $manager->getReference($resourceClass, $identifiers);
         }
 
         $repository = $manager->getRepository($resourceClass);
@@ -87,10 +94,10 @@ class ItemDataProvider implements DenormalizedIdentifiersAwareItemDataProviderIn
         $queryNameGenerator = new QueryNameGenerator();
         $doctrineClassMetadata = $manager->getClassMetadata($resourceClass);
 
-        $this->addWhereForIdentifiers((array) $id, $queryBuilder, $doctrineClassMetadata);
+        $this->addWhereForIdentifiers($identifiers, $queryBuilder, $doctrineClassMetadata);
 
         foreach ($this->itemExtensions as $extension) {
-            $extension->applyToItem($queryBuilder, $queryNameGenerator, $resourceClass, $id, $operationName, $context);
+            $extension->applyToItem($queryBuilder, $queryNameGenerator, $resourceClass, $identifiers, $operationName, $context);
 
             if ($extension instanceof QueryResultItemExtensionInterface && $extension->supportsResult($resourceClass, $operationName, $context)) {
                 return $extension->getResult($queryBuilder, $resourceClass, $operationName, $context);

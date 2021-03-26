@@ -24,6 +24,7 @@ use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\DummyCar;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\DummyTableInheritance;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\DummyTableInheritanceChild;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -31,69 +32,87 @@ use PHPUnit\Framework\TestCase;
  */
 class ResourceClassResolverTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testGetResourceClassWithIntendedClassName()
     {
+        $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]));
+
         $dummy = new Dummy();
         $dummy->setName('Smail');
-        $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClass = $resourceClassResolver->getResourceClass($dummy, Dummy::class);
-        $this->assertEquals($resourceClass, Dummy::class);
+
+        $this->assertEquals(Dummy::class, $resourceClassResolver->getResourceClass($dummy, Dummy::class));
     }
 
-    public function testGetResourceClassWithOtherClassName()
+    public function testGetResourceClassWithNonResourceClassName()
     {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Specified class "ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\DummyCar" is not a resource class.');
+
+        $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]));
+
         $dummy = new Dummy();
         $dummy->setName('Smail');
-        $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClass = $resourceClassResolver->getResourceClass($dummy, DummyCar::class, true);
-        $this->assertEquals($resourceClass, Dummy::class);
+
+        $resourceClassResolver->getResourceClass($dummy, DummyCar::class, true);
     }
 
     public function testGetResourceClassWithNoClassName()
     {
+        $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]));
+
         $dummy = new Dummy();
         $dummy->setName('Smail');
-        $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClass = $resourceClassResolver->getResourceClass($dummy, null);
-        $this->assertEquals($resourceClass, Dummy::class);
+
+        $this->assertEquals(Dummy::class, $resourceClassResolver->getResourceClass($dummy));
     }
 
     public function testGetResourceClassWithTraversableAsValue()
     {
+        $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]));
+
         $dummy = new Dummy();
         $dummy->setName('JLM');
 
         $dummies = new \ArrayIterator([$dummy]);
 
+        $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
+
+        $this->assertEquals(Dummy::class, $resourceClassResolver->getResourceClass($dummies, Dummy::class));
+    }
+
+    public function testGetResourceClassWithTraversable()
+    {
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([\ArrayObject::class]));
+
+        $dummy = new \ArrayObject();
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClass = $resourceClassResolver->getResourceClass($dummies, Dummy::class);
 
-        $this->assertEquals($resourceClass, Dummy::class);
+        $this->assertEquals(\ArrayObject::class, $resourceClassResolver->getResourceClass($dummy));
     }
 
     public function testGetResourceClassWithPaginatorInterfaceAsValue()
     {
-        $paginatorProphecy = $this->prophesize(PaginatorInterface::class);
-
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
         $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
 
-        $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClass = $resourceClassResolver->getResourceClass($paginatorProphecy->reveal(), Dummy::class);
+        $paginatorProphecy = $this->prophesize(PaginatorInterface::class);
 
-        $this->assertEquals($resourceClass, Dummy::class);
+        $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
+
+        $this->assertEquals(Dummy::class, $resourceClassResolver->getResourceClass($paginatorProphecy->reveal(), Dummy::class));
     }
 
     public function testGetResourceClassWithWrongClassName()
@@ -105,82 +124,86 @@ class ResourceClassResolverTest extends TestCase
         $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClassResolver->getResourceClass(new \stdClass(), null);
+
+        $resourceClassResolver->getResourceClass(new \stdClass());
     }
 
     public function testGetResourceClassWithNoResourceClassName()
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('No resource class found.');
+        $this->expectExceptionMessage('Resource type could not be determined. Resource class must be specified.');
 
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([]));
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClassResolver->getResourceClass(new \ArrayIterator([]), null);
+
+        $resourceClassResolver->getResourceClass(new \ArrayIterator([]));
     }
 
     public function testIsResourceClassWithIntendedClassName()
     {
-        $dummy = new Dummy();
-        $dummy->setName('Smail');
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]));
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClass = $resourceClassResolver->isResourceClass(Dummy::class);
-        $this->assertTrue($resourceClass);
+
+        $this->assertTrue($resourceClassResolver->isResourceClass(Dummy::class));
     }
 
     public function testIsResourceClassWithWrongClassName()
     {
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([\ArrayIterator::class]))->shouldBeCalled();
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([\ArrayIterator::class]));
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClass = $resourceClassResolver->isResourceClass('');
-        $this->assertFalse($resourceClass);
+
+        $this->assertFalse($resourceClassResolver->isResourceClass(''));
     }
 
     public function testGetResourceClassWithNoResourceClassNameAndNoObject()
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('No resource class found.');
+        $this->expectExceptionMessage('Resource type could not be determined. Resource class must be specified.');
 
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClassResolver->getResourceClass(false, null);
+
+        $resourceClassResolver->getResourceClass(false);
     }
 
     public function testGetResourceClassWithResourceClassNameAndNoObject()
     {
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([Dummy::class]));
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $this->assertEquals($resourceClassResolver->getResourceClass(false, Dummy::class), Dummy::class);
+
+        $this->assertEquals(Dummy::class, $resourceClassResolver->getResourceClass(false, Dummy::class));
     }
 
     public function testGetResourceClassWithChildResource()
     {
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([DummyTableInheritance::class]))->shouldBeCalled();
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([DummyTableInheritance::class, DummyTableInheritanceChild::class]));
 
-        $t = new DummyTableInheritanceChild();
+        $dummy = new DummyTableInheritanceChild();
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
 
-        $this->assertEquals(DummyTableInheritanceChild::class, $resourceClassResolver->getResourceClass($t, DummyTableInheritance::class));
+        $this->assertEquals(DummyTableInheritanceChild::class, $resourceClassResolver->getResourceClass($dummy, DummyTableInheritance::class));
     }
 
     public function testGetResourceClassWithInterfaceResource()
     {
-        $dummy = new DummyResourceImplementation();
         $resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
-        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([DummyResourceInterface::class]))->shouldBeCalled();
+        $resourceNameCollectionFactoryProphecy->create()->willReturn(new ResourceNameCollection([DummyResourceInterface::class]));
+
+        $dummy = new DummyResourceImplementation();
 
         $resourceClassResolver = new ResourceClassResolver($resourceNameCollectionFactoryProphecy->reveal());
-        $resourceClass = $resourceClassResolver->getResourceClass($dummy, DummyResourceInterface::class, true);
-        $this->assertEquals(DummyResourceImplementation::class, $resourceClass);
+
+        $this->assertEquals(DummyResourceInterface::class, $resourceClassResolver->getResourceClass($dummy, DummyResourceInterface::class, true));
     }
 }

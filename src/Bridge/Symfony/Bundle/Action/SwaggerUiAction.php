@@ -14,8 +14,8 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Bridge\Symfony\Bundle\Action;
 
 use ApiPlatform\Core\Api\FormatsProviderInterface;
+use ApiPlatform\Core\Bridge\Symfony\Bundle\SwaggerUi\SwaggerUiAction as OpenApiSwaggerUiAction;
 use ApiPlatform\Core\Documentation\Documentation;
-use ApiPlatform\Core\Exception\InvalidArgumentException;
 use ApiPlatform\Core\Exception\RuntimeException;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceNameCollectionFactoryInterface;
@@ -24,9 +24,12 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
+use Twig\Environment as TwigEnvironment;
 
 /**
  * Displays the documentation.
+ *
+ * @deprecated please refer to ApiPlatform\Core\Bridge\Symfony\Bundle\SwaggerUi\SwaggerUiAction for further changes
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
@@ -41,7 +44,7 @@ final class SwaggerUiAction
     private $description;
     private $version;
     private $showWebby;
-    private $formats = [];
+    private $formats;
     private $oauthEnabled;
     private $oauthClientId;
     private $oauthClientSecret;
@@ -54,11 +57,18 @@ final class SwaggerUiAction
     private $swaggerUiEnabled;
     private $reDocEnabled;
     private $graphqlEnabled;
+    private $graphiQlEnabled;
+    private $graphQlPlaygroundEnabled;
+    private $swaggerVersions;
+    private $swaggerUiAction;
+    private $assetPackage;
+    private $swaggerUiExtraConfiguration;
 
     /**
-     * @throws InvalidArgumentException
+     * @param int[]      $swaggerVersions
+     * @param mixed|null $assetPackage
      */
-    public function __construct(ResourceNameCollectionFactoryInterface $resourceNameCollectionFactory, ResourceMetadataFactoryInterface $resourceMetadataFactory, NormalizerInterface $normalizer, \Twig_Environment $twig, UrlGeneratorInterface $urlGenerator, string $title = '', string $description = '', string $version = '', /* FormatsProviderInterface */ $formatsProvider = [], $oauthEnabled = false, $oauthClientId = '', $oauthClientSecret = '', $oauthType = '', $oauthFlow = '', $oauthTokenUrl = '', $oauthAuthorizationUrl = '', $oauthScopes = [], bool $showWebby = true, bool $swaggerUiEnabled = false, bool $reDocEnabled = false, bool $graphqlEnabled = false)
+    public function __construct(ResourceNameCollectionFactoryInterface $resourceNameCollectionFactory, ResourceMetadataFactoryInterface $resourceMetadataFactory, NormalizerInterface $normalizer, TwigEnvironment $twig, UrlGeneratorInterface $urlGenerator, string $title = '', string $description = '', string $version = '', $formats = [], $oauthEnabled = false, $oauthClientId = '', $oauthClientSecret = '', $oauthType = '', $oauthFlow = '', $oauthTokenUrl = '', $oauthAuthorizationUrl = '', $oauthScopes = [], bool $showWebby = true, bool $swaggerUiEnabled = false, bool $reDocEnabled = false, bool $graphqlEnabled = false, bool $graphiQlEnabled = false, bool $graphQlPlaygroundEnabled = false, array $swaggerVersions = [2, 3], OpenApiSwaggerUiAction $swaggerUiAction = null, $assetPackage = null, array $swaggerUiExtraConfiguration = [])
     {
         $this->resourceNameCollectionFactory = $resourceNameCollectionFactory;
         $this->resourceMetadataFactory = $resourceMetadataFactory;
@@ -80,33 +90,48 @@ final class SwaggerUiAction
         $this->swaggerUiEnabled = $swaggerUiEnabled;
         $this->reDocEnabled = $reDocEnabled;
         $this->graphqlEnabled = $graphqlEnabled;
+        $this->graphiQlEnabled = $graphiQlEnabled;
+        $this->graphQlPlaygroundEnabled = $graphQlPlaygroundEnabled;
+        $this->swaggerVersions = $swaggerVersions;
+        $this->swaggerUiAction = $swaggerUiAction;
+        $this->swaggerUiExtraConfiguration = $swaggerUiExtraConfiguration;
+        $this->assetPackage = $assetPackage;
 
-        if (\is_array($formatsProvider)) {
-            if ($formatsProvider) {
-                // Only trigger notification for non-default argument
-                @trigger_error('Using an array as formats provider is deprecated since API Platform 2.3 and will not be possible anymore in API Platform 3', E_USER_DEPRECATED);
-            }
-            $this->formats = $formatsProvider;
+        if (null === $this->swaggerUiAction) {
+            @trigger_error(sprintf('The use of "%s" is deprecated since API Platform 2.6, use "%s" instead.', __CLASS__, OpenApiSwaggerUiAction::class), \E_USER_DEPRECATED);
+        }
+
+        if (\is_array($formats)) {
+            $this->formats = $formats;
 
             return;
         }
-        if (!$formatsProvider instanceof FormatsProviderInterface) {
-            throw new InvalidArgumentException(sprintf('The "$formatsProvider" argument is expected to be an implementation of the "%s" interface.', FormatsProviderInterface::class));
-        }
 
-        $this->formatsProvider = $formatsProvider;
+        @trigger_error(sprintf('Passing an array or an instance of "%s" as 5th parameter of the constructor of "%s" is deprecated since API Platform 2.5, pass an array instead', FormatsProviderInterface::class, __CLASS__), \E_USER_DEPRECATED);
+        $this->formatsProvider = $formats;
     }
 
     public function __invoke(Request $request)
     {
-        // BC check to be removed in 3.0
-        if (null !== $this->formatsProvider) {
-            $this->formats = $this->formatsProvider->getFormatsFromAttributes(RequestAttributesExtractor::extractAttributes($request));
+        if ($this->swaggerUiAction) {
+            return $this->swaggerUiAction->__invoke($request);
         }
 
-        $documentation = new Documentation($this->resourceNameCollectionFactory->create(), $this->title, $this->description, $this->version, $this->formats);
+        $attributes = RequestAttributesExtractor::extractAttributes($request);
 
-        return new Response($this->twig->render('@ApiPlatform/SwaggerUi/index.html.twig', $this->getContext($request, $documentation)));
+        // BC check to be removed in 3.0
+        if (null === $this->formatsProvider) {
+            $formats = $attributes ? $this
+                ->resourceMetadataFactory
+                ->create($attributes['resource_class'])
+                ->getOperationAttribute($attributes, 'output_formats', [], true) : $this->formats;
+        } else {
+            $formats = $this->formatsProvider->getFormatsFromAttributes($attributes);
+        }
+
+        $documentation = new Documentation($this->resourceNameCollectionFactory->create(), $this->title, $this->description, $this->version);
+
+        return new Response($this->twig->render('@ApiPlatform/SwaggerUi/index.html.twig', $this->getContext($request, $documentation) + ['formats' => $formats]));
     }
 
     /**
@@ -117,14 +142,16 @@ final class SwaggerUiAction
         $context = [
             'title' => $this->title,
             'description' => $this->description,
-            'formats' => $this->formats,
             'showWebby' => $this->showWebby,
             'swaggerUiEnabled' => $this->swaggerUiEnabled,
             'reDocEnabled' => $this->reDocEnabled,
             'graphqlEnabled' => $this->graphqlEnabled,
+            'graphiQlEnabled' => $this->graphiQlEnabled,
+            'graphQlPlaygroundEnabled' => $this->graphQlPlaygroundEnabled,
+            'assetPackage' => $this->assetPackage,
         ];
 
-        $swaggerContext = ['spec_version' => $request->query->getInt('spec_version', 2)];
+        $swaggerContext = ['spec_version' => $request->query->getInt('spec_version', $this->swaggerVersions[0] ?? 2)];
         if ('' !== $baseUrl = $request->getBaseUrl()) {
             $swaggerContext['base_url'] = $baseUrl;
         }
@@ -132,6 +159,7 @@ final class SwaggerUiAction
         $swaggerData = [
             'url' => $this->urlGenerator->generate('api_doc', ['format' => 'json']),
             'spec' => $this->normalizer->normalize($documentation, 'json', $swaggerContext),
+            'extraConfiguration' => $this->swaggerUiExtraConfiguration,
         ];
 
         $swaggerData['oauth'] = [
@@ -145,7 +173,7 @@ final class SwaggerUiAction
             'scopes' => $this->oauthScopes,
         ];
 
-        if ($request->isMethodSafe(false) && null !== $resourceClass = $request->attributes->get('_api_resource_class')) {
+        if ($request->isMethodSafe() && null !== $resourceClass = $request->attributes->get('_api_resource_class')) {
             $swaggerData['id'] = $request->attributes->get('id');
             $swaggerData['queryParameters'] = $request->query->all();
 
@@ -160,7 +188,7 @@ final class SwaggerUiAction
                 $swaggerData['operationId'] = $subresourceOperationContext['operationId'];
             }
 
-            list($swaggerData['path'], $swaggerData['method']) = $this->getPathAndMethod($swaggerData);
+            [$swaggerData['path'], $swaggerData['method']] = $this->getPathAndMethod($swaggerData);
         }
 
         return $context + ['swagger_data' => $swaggerData];

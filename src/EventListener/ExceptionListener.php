@@ -13,8 +13,11 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\EventListener;
 
-use Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent;
-use Symfony\Component\HttpKernel\EventListener\ExceptionListener as BaseExceptionListener;
+use ApiPlatform\Core\Util\RequestAttributesExtractor;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\EventListener\ErrorListener;
+use Symfony\Component\HttpKernel\EventListener\ExceptionListener as LegacyExceptionListener;
 
 /**
  * Handles requests errors.
@@ -22,19 +25,29 @@ use Symfony\Component\HttpKernel\EventListener\ExceptionListener as BaseExceptio
  * @author Samuel ROZE <samuel.roze@gmail.com>
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
-final class ExceptionListener extends BaseExceptionListener
+final class ExceptionListener
 {
-    public function onKernelException(GetResponseForExceptionEvent $event)
+    /**
+     * @var ErrorListener
+     */
+    private $exceptionListener;
+
+    public function __construct($controller, LoggerInterface $logger = null, $debug = false, ErrorListener $errorListener = null)
+    {
+        $this->exceptionListener = $errorListener ? new ErrorListener($controller, $logger, $debug) : new LegacyExceptionListener($controller, $logger, $debug); // @phpstan-ignore-line
+    }
+
+    public function onKernelException(ExceptionEvent $event): void
     {
         $request = $event->getRequest();
         // Normalize exceptions only for routes managed by API Platform
         if (
             'html' === $request->getRequestFormat('') ||
-            (!$request->attributes->has('_api_resource_class') && !$request->attributes->has('_api_respond') && !$request->attributes->has('_graphql'))
+            !((RequestAttributesExtractor::extractAttributes($request)['respond'] ?? $request->attributes->getBoolean('_api_respond', false)) || $request->attributes->getBoolean('_graphql', false))
         ) {
             return;
         }
 
-        parent::onKernelException($event);
+        $this->exceptionListener->onKernelException($event);
     }
 }

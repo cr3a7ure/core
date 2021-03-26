@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Tests\Bridge\Doctrine\Orm\Filter;
 
+use ApiPlatform\Core\Api\IdentifiersExtractorInterface;
 use ApiPlatform\Core\Api\IriConverterInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGenerator;
@@ -21,7 +22,9 @@ use ApiPlatform\Core\Test\DoctrineOrmFilterTestCase;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\Common\Filter\SearchFilterTestTrait;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\RelatedDummy;
-use Doctrine\Common\Persistence\ManagerRegistry;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Serializer\NameConverter\CustomConverter;
+use ApiPlatform\Core\Tests\ProphecyTrait;
+use Doctrine\Persistence\ManagerRegistry;
 use Prophecy\Argument;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -32,6 +35,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  */
 class SearchFilterTest extends DoctrineOrmFilterTestCase
 {
+    use ProphecyTrait;
     use SearchFilterTestTrait;
 
     protected $alias = 'oo';
@@ -182,15 +186,15 @@ class SearchFilterTest extends DoctrineOrmFilterTestCase
                 'strategy' => 'exact',
                 'is_collection' => true,
             ],
-            'nameConverted' => [
-                'property' => 'nameConverted',
+            'name_converted' => [
+                'property' => 'name_converted',
                 'type' => 'string',
                 'required' => false,
                 'strategy' => 'exact',
                 'is_collection' => false,
             ],
-            'nameConverted[]' => [
-                'property' => 'nameConverted',
+            'name_converted[]' => [
+                'property' => 'name_converted',
                 'type' => 'string',
                 'required' => false,
                 'strategy' => 'exact',
@@ -329,6 +333,21 @@ class SearchFilterTest extends DoctrineOrmFilterTestCase
         $this->doTestApplyWithAnotherAlias(true);
     }
 
+    /**
+     * @group legacy
+     * @expectedDeprecation Not injecting ItemIdentifiersExtractor is deprecated since API Platform 2.5 and can lead to unexpected behaviors, it will not be possible anymore in API Platform 3.0.
+     */
+    public function testNotPassingIdentifiersExtractor()
+    {
+        $requestStack = new RequestStack();
+        $requestStack->push(Request::create('/api/dummies', 'GET', []));
+        $iriConverterProphecy = $this->prophesize(IriConverterInterface::class);
+        $iriConverter = $iriConverterProphecy->reveal();
+        $propertyAccessor = self::$kernel->getContainer()->get('test.property_accessor');
+
+        return new SearchFilter($this->managerRegistry, $requestStack, $iriConverter, $propertyAccessor, null, null, null);
+    }
+
     private function doTestApplyWithAnotherAlias(bool $request)
     {
         $filters = ['name' => 'exact'];
@@ -365,8 +384,13 @@ class SearchFilterTest extends DoctrineOrmFilterTestCase
                     ['name_p1' => 'exact'],
                     $filterFactory,
                 ],
+                'exact (case insensitive, with special characters)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) = LOWER(:name_p1)', $this->alias, Dummy::class),
+                    ['name_p1' => 'exact (special)'],
+                    $filterFactory,
+                ],
                 'exact (multiple values)' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name IN (:name_p1)', $this->alias, Dummy::class),
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name IN(:name_p1)', $this->alias, Dummy::class),
                     [
                         'name_p1' => [
                             'CaSE',
@@ -376,7 +400,7 @@ class SearchFilterTest extends DoctrineOrmFilterTestCase
                     $filterFactory,
                 ],
                 'exact (multiple values; case insensitive)' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) IN (:name_p1)', $this->alias, Dummy::class),
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) IN(:name_p1)', $this->alias, Dummy::class),
                     [
                         'name_p1' => [
                             'case',
@@ -391,53 +415,130 @@ class SearchFilterTest extends DoctrineOrmFilterTestCase
                     $filterFactory,
                 ],
                 'invalid values for relations' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name = :name_p1 AND %1$s.relatedDummy = :relatedDummy_p2', $this->alias, Dummy::class),
-                    ['relatedDummy_p2' => 'foo'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name = :name_p1', $this->alias, Dummy::class),
+                    [],
                     $filterFactory,
                 ],
                 'partial' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(\'%%\', :name_p1, \'%%\')', $this->alias, Dummy::class),
-                    ['name_p1' => 'partial'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(\'%%\', :name_p1_0, \'%%\')', $this->alias, Dummy::class),
+                    ['name_p1_0' => 'partial'],
                     $filterFactory,
                 ],
                 'partial (case insensitive)' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%%\', :name_p1, \'%%\'))', $this->alias, Dummy::class),
-                    ['name_p1' => 'partial'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%%\', :name_p1_0, \'%%\'))', $this->alias, Dummy::class),
+                    ['name_p1_0' => 'partial'],
+                    $filterFactory,
+                ],
+                'partial (multiple values)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(\'%%\', :name_p1_0, \'%%\') OR %1$s.name LIKE CONCAT(\'%%\', :name_p1_1, \'%%\')', $this->alias, Dummy::class),
+                    [
+                        'name_p1_0' => 'CaSE',
+                        'name_p1_1' => 'SENSitive',
+                    ],
+                    $filterFactory,
+                ],
+                'partial (multiple values; case insensitive)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%%\', :name_p1_0, \'%%\')) OR LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%%\', :name_p1_1, \'%%\'))', $this->alias, Dummy::class),
+                    [
+                        'name_p1_0' => 'case',
+                        'name_p1_1' => 'insensitive',
+                    ],
                     $filterFactory,
                 ],
                 'start' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(:name_p1, \'%%\')', $this->alias, Dummy::class),
-                    ['name_p1' => 'partial'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(:name_p1_0, \'%%\')', $this->alias, Dummy::class),
+                    ['name_p1_0' => 'partial'],
                     $filterFactory,
                 ],
                 'start (case insensitive)' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(:name_p1, \'%%\'))', $this->alias, Dummy::class),
-                    ['name_p1' => 'partial'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(:name_p1_0, \'%%\'))', $this->alias, Dummy::class),
+                    ['name_p1_0' => 'partial'],
+                    $filterFactory,
+                ],
+                'start (multiple values)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(:name_p1_0, \'%%\') OR %1$s.name LIKE CONCAT(:name_p1_1, \'%%\')', $this->alias, Dummy::class),
+                    [
+                        'name_p1_0' => 'CaSE',
+                        'name_p1_1' => 'SENSitive',
+                    ],
+                    $filterFactory,
+                ],
+                'start (multiple values; case insensitive)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(:name_p1_0, \'%%\')) OR LOWER(%1$s.name) LIKE LOWER(CONCAT(:name_p1_1, \'%%\'))', $this->alias, Dummy::class),
+                    [
+                        'name_p1_0' => 'case',
+                        'name_p1_1' => 'insensitive',
+                    ],
                     $filterFactory,
                 ],
                 'end' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(\'%%\', :name_p1)', $this->alias, Dummy::class),
-                    ['name_p1' => 'partial'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(\'%%\', :name_p1_0)', $this->alias, Dummy::class),
+                    ['name_p1_0' => 'partial'],
                     $filterFactory,
                 ],
                 'end (case insensitive)' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%%\', :name_p1))', $this->alias, Dummy::class),
-                    ['name_p1' => 'partial'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%%\', :name_p1_0))', $this->alias, Dummy::class),
+                    ['name_p1_0' => 'partial'],
+                    $filterFactory,
+                ],
+                'end (multiple values)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(\'%%\', :name_p1_0) OR %1$s.name LIKE CONCAT(\'%%\', :name_p1_1)', $this->alias, Dummy::class),
+                    [
+                        'name_p1_0' => 'CaSE',
+                        'name_p1_1' => 'SENSitive',
+                    ],
+                    $filterFactory,
+                ],
+                'end (multiple values; case insensitive)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%%\', :name_p1_0)) OR LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%%\', :name_p1_1))', $this->alias, Dummy::class),
+                    [
+                        'name_p1_0' => 'case',
+                        'name_p1_1' => 'insensitive',
+                    ],
                     $filterFactory,
                 ],
                 'word_start' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(:name_p1, \'%%\') OR %1$s.name LIKE CONCAT(\'%% \', :name_p1, \'%%\')', $this->alias, Dummy::class),
-                    ['name_p1' => 'partial'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.name LIKE CONCAT(:name_p1_0, \'%%\') OR %1$s.name LIKE CONCAT(\'%% \', :name_p1_0, \'%%\')', $this->alias, Dummy::class),
+                    ['name_p1_0' => 'partial'],
                     $filterFactory,
                 ],
                 'word_start (case insensitive)' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(:name_p1, \'%%\')) OR LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%% \', :name_p1, \'%%\'))', $this->alias, Dummy::class),
-                    ['name_p1' => 'partial'],
+                    sprintf('SELECT %s FROM %s %1$s WHERE LOWER(%1$s.name) LIKE LOWER(CONCAT(:name_p1_0, \'%%\')) OR LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%% \', :name_p1_0, \'%%\'))', $this->alias, Dummy::class),
+                    ['name_p1_0' => 'partial'],
+                    $filterFactory,
+                ],
+                'word_start (multiple values)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE (%1$s.name LIKE CONCAT(:name_p1_0, \'%%\') OR %1$s.name LIKE CONCAT(\'%% \', :name_p1_0, \'%%\')) OR (%1$s.name LIKE CONCAT(:name_p1_1, \'%%\') OR %1$s.name LIKE CONCAT(\'%% \', :name_p1_1, \'%%\'))', $this->alias, Dummy::class),
+                    [
+                        'name_p1_0' => 'CaSE',
+                        'name_p1_1' => 'SENSitive',
+                    ],
+                    $filterFactory,
+                ],
+                'word_start (multiple values; case insensitive)' => [
+                    sprintf('SELECT %s FROM %s %1$s WHERE (LOWER(%1$s.name) LIKE LOWER(CONCAT(:name_p1_0, \'%%\')) OR LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%% \', :name_p1_0, \'%%\'))) OR (LOWER(%1$s.name) LIKE LOWER(CONCAT(:name_p1_1, \'%%\')) OR LOWER(%1$s.name) LIKE LOWER(CONCAT(\'%% \', :name_p1_1, \'%%\')))', $this->alias, Dummy::class),
+                    [
+                        'name_p1_0' => 'case',
+                        'name_p1_1' => 'insensitive',
+                    ],
                     $filterFactory,
                 ],
                 'invalid value for relation' => [
-                    sprintf('SELECT %s FROM %s %1$s WHERE %1$s.relatedDummy = :relatedDummy_p1', $this->alias, Dummy::class),
-                    ['relatedDummy_p1' => 'exact'],
+                    sprintf('SELECT %s FROM %s %1$s', $this->alias, Dummy::class),
+                    [],
+                    $filterFactory,
+                ],
+                'invalid iri for relation' => [
+                    [
+                        'id' => null,
+                        'name' => null,
+                        'relatedDummy' => null,
+                    ],
+                    [
+                        'relatedDummy' => '/related_dummie/1',
+                    ],
+                    sprintf('SELECT %s FROM %s %1$s', $this->alias, Dummy::class),
+                    [],
                     $filterFactory,
                 ],
                 'IRI value for relation' => [
@@ -446,10 +547,10 @@ class SearchFilterTest extends DoctrineOrmFilterTestCase
                     $filterFactory,
                 ],
                 'mixed IRI and entity ID values for relations' => [
-                    sprintf('SELECT %s FROM %s %1$s INNER JOIN %1$s.relatedDummies relatedDummies_a1 WHERE %1$s.relatedDummy IN (:relatedDummy_p1) AND relatedDummies_a1.id = :relatedDummies_p2', $this->alias, Dummy::class),
+                    sprintf('SELECT %s FROM %s %1$s INNER JOIN %1$s.relatedDummies relatedDummies_a1 WHERE %1$s.relatedDummy IN(:relatedDummy_p1) AND relatedDummies_a1.id = :id_p2', $this->alias, Dummy::class),
                     [
                         'relatedDummy_p1' => [1, 2],
-                        'relatedDummies_p2' => 1,
+                        'id_p2' => 1,
                     ],
                     $filterFactory,
                 ],
@@ -459,6 +560,11 @@ class SearchFilterTest extends DoctrineOrmFilterTestCase
                         'name_p1' => 'exact',
                         'symfony_p2' => 'exact',
                     ],
+                    $filterFactory,
+                ],
+                'empty nested property' => [
+                    sprintf('SELECT %s FROM %s %1$s', $this->alias, Dummy::class),
+                    [],
                     $filterFactory,
                 ],
             ]
@@ -483,6 +589,9 @@ class SearchFilterTest extends DoctrineOrmFilterTestCase
         $iriConverter = $iriConverterProphecy->reveal();
         $propertyAccessor = self::$kernel->getContainer()->get('test.property_accessor');
 
-        return new SearchFilter($managerRegistry, $requestStack, $iriConverter, $propertyAccessor, null, $properties);
+        $identifierExtractorProphecy = $this->prophesize(IdentifiersExtractorInterface::class);
+        $identifierExtractorProphecy->getIdentifiersFromResourceClass(Argument::type('string'))->willReturn(['id']);
+
+        return new SearchFilter($managerRegistry, $requestStack, $iriConverter, $propertyAccessor, null, $properties, $identifierExtractorProphecy->reveal(), new CustomConverter());
     }
 }

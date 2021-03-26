@@ -45,11 +45,11 @@ trait NumericFilterTrait
                 continue;
             }
 
-            $filterParameterNames = [$property, $property.'[]'];
-
+            $propertyName = $this->normalizePropertyName($property);
+            $filterParameterNames = [$propertyName, $propertyName.'[]'];
             foreach ($filterParameterNames as $filterParameterName) {
                 $description[$filterParameterName] = [
-                    'property' => $property,
+                    'property' => $propertyName,
                     'type' => $this->getType((string) $this->getDoctrineFieldType($property, $resourceClass)),
                     'required' => false,
                     'is_collection' => '[]' === substr((string) $filterParameterName, -2),
@@ -68,6 +68,8 @@ trait NumericFilterTrait
     abstract protected function getProperties(): ?array;
 
     abstract protected function getLogger(): LoggerInterface;
+
+    abstract protected function normalizePropertyName($property);
 
     /**
      * Determines whether the given property refers to a numeric field.
@@ -92,7 +94,10 @@ trait NumericFilterTrait
         foreach ($values as $key => $val) {
             if (!\is_int($key)) {
                 unset($values[$key]);
+
+                continue;
             }
+            $values[$key] = $val + 0; // coerce $val to the right type.
         }
 
         if (empty($values)) {

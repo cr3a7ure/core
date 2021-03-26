@@ -73,16 +73,22 @@ final class RangeFilter extends AbstractFilter implements RangeFilterInterface
             case self::PARAMETER_BETWEEN:
                 $rangeValue = explode('..', $value);
 
-                $rangeValue = $this->normalizeBetweenValues($rangeValue, $field);
+                $rangeValue = $this->normalizeBetweenValues($rangeValue);
                 if (null === $rangeValue) {
                     return;
                 }
 
-                $aggregationBuilder->match()->field($matchField)->lte($rangeValue[0])->gte($rangeValue[1]);
+                if ($rangeValue[0] === $rangeValue[1]) {
+                    $aggregationBuilder->match()->field($matchField)->equals($rangeValue[0]);
+
+                    return;
+                }
+
+                $aggregationBuilder->match()->field($matchField)->gte($rangeValue[0])->lte($rangeValue[1]);
 
                 break;
             case self::PARAMETER_GREATER_THAN:
-                $value = $this->normalizeValue($value, $field, $operator);
+                $value = $this->normalizeValue($value, $operator);
                 if (null === $value) {
                     return;
                 }
@@ -91,7 +97,7 @@ final class RangeFilter extends AbstractFilter implements RangeFilterInterface
 
                 break;
             case self::PARAMETER_GREATER_THAN_OR_EQUAL:
-                $value = $this->normalizeValue($value, $field, $operator);
+                $value = $this->normalizeValue($value, $operator);
                 if (null === $value) {
                     return;
                 }
@@ -100,7 +106,7 @@ final class RangeFilter extends AbstractFilter implements RangeFilterInterface
 
                 break;
             case self::PARAMETER_LESS_THAN:
-                $value = $this->normalizeValue($value, $field, $operator);
+                $value = $this->normalizeValue($value, $operator);
                 if (null === $value) {
                     return;
                 }
@@ -109,7 +115,7 @@ final class RangeFilter extends AbstractFilter implements RangeFilterInterface
 
                 break;
             case self::PARAMETER_LESS_THAN_OR_EQUAL:
-                $value = $this->normalizeValue($value, $field, $operator);
+                $value = $this->normalizeValue($value, $operator);
                 if (null === $value) {
                     return;
                 }

@@ -17,6 +17,7 @@ use ApiPlatform\Core\Metadata\Resource\Factory\CachedResourceNameCollectionFacto
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceNameCollection;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheException;
 use Psr\Cache\CacheItemInterface;
@@ -27,6 +28,8 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 class CachedResourceNameCollectionFactoryTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testCreateWithItemHit()
     {
         $cacheItem = $this->prophesize(CacheItemInterface::class);
@@ -40,8 +43,6 @@ class CachedResourceNameCollectionFactoryTest extends TestCase
 
         $cachedResourceNameCollectionFactory = new CachedResourceNameCollectionFactory($cacheItemPool->reveal(), $decoratedResourceNameCollectionFactory->reveal());
         $resultedResourceNameCollection = $cachedResourceNameCollectionFactory->create();
-
-        $this->assertInstanceOf(ResourceNameCollection::class, $resultedResourceNameCollection);
 
         $expectedResult = new ResourceNameCollection([Dummy::class]);
         $this->assertEquals($expectedResult, $resultedResourceNameCollection);
@@ -66,8 +67,6 @@ class CachedResourceNameCollectionFactoryTest extends TestCase
         $cachedResourceNameCollectionFactory = new CachedResourceNameCollectionFactory($cacheItemPool->reveal(), $decoratedResourceNameCollectionFactory->reveal());
         $resultedResourceNameCollection = $cachedResourceNameCollectionFactory->create();
 
-        $this->assertInstanceOf(ResourceNameCollection::class, $resultedResourceNameCollection);
-
         $expectedResult = new ResourceNameCollection([Dummy::class]);
         $this->assertEquals($expectedResult, $resultedResourceNameCollection);
         $this->assertEquals($expectedResult, $cachedResourceNameCollectionFactory->create(), 'Trigger the local cache');
@@ -78,16 +77,13 @@ class CachedResourceNameCollectionFactoryTest extends TestCase
         $decoratedResourceNameCollectionFactory = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
         $decoratedResourceNameCollectionFactory->create()->willReturn(new ResourceNameCollection([Dummy::class]))->shouldBeCalled();
 
-        $cacheException = $this->prophesize(CacheException::class);
-        $cacheException->willExtend(\Exception::class);
+        $cacheException = new class() extends \Exception implements CacheException {};
 
         $cacheItemPool = $this->prophesize(CacheItemPoolInterface::class);
-        $cacheItemPool->getItem(CachedResourceNameCollectionFactory::CACHE_KEY)->willThrow($cacheException->reveal())->shouldBeCalled();
+        $cacheItemPool->getItem(CachedResourceNameCollectionFactory::CACHE_KEY)->willThrow($cacheException)->shouldBeCalled();
 
         $cachedResourceNameCollectionFactory = new CachedResourceNameCollectionFactory($cacheItemPool->reveal(), $decoratedResourceNameCollectionFactory->reveal());
         $resultedResourceNameCollection = $cachedResourceNameCollectionFactory->create();
-
-        $this->assertInstanceOf(ResourceNameCollection::class, $resultedResourceNameCollection);
 
         $expectedResult = new ResourceNameCollection([Dummy::class]);
         $this->assertEquals($expectedResult, $resultedResourceNameCollection);

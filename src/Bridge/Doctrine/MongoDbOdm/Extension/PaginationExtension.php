@@ -16,10 +16,11 @@ namespace ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Extension;
 use ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Paginator;
 use ApiPlatform\Core\DataProvider\Pagination;
 use ApiPlatform\Core\Exception\RuntimeException;
-use Doctrine\Common\Persistence\ManagerRegistry;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use Doctrine\ODM\MongoDB\Aggregation\Builder;
 use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Repository\DocumentRepository;
+use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * Applies pagination on the Doctrine aggregation for resource collection when enabled.
@@ -33,11 +34,13 @@ use Doctrine\ODM\MongoDB\Repository\DocumentRepository;
 final class PaginationExtension implements AggregationResultCollectionExtensionInterface
 {
     private $managerRegistry;
+    private $resourceMetadataFactory;
     private $pagination;
 
-    public function __construct(ManagerRegistry $managerRegistry, Pagination $pagination)
+    public function __construct(ManagerRegistry $managerRegistry, ResourceMetadataFactoryInterface $resourceMetadataFactory, Pagination $pagination)
     {
         $this->managerRegistry = $managerRegistry;
+        $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->pagination = $pagination;
     }
 
@@ -52,6 +55,12 @@ final class PaginationExtension implements AggregationResultCollectionExtensionI
             return;
         }
 
+        if (($context['graphql_operation_name'] ?? false) && !$this->pagination->isGraphQlEnabled($resourceClass, $operationName, $context)) {
+            return;
+        }
+
+        $context = $this->addCountToContext(clone $aggregationBuilder, $context);
+
         [, $offset, $limit] = $this->pagination->getPagination($resourceClass, $operationName, $context);
 
         $manager = $this->managerRegistry->getManagerForClass($resourceClass);
@@ -64,12 +73,18 @@ final class PaginationExtension implements AggregationResultCollectionExtensionI
             throw new RuntimeException(sprintf('The repository for "%s" must be an instance of "%s".', $resourceClass, DocumentRepository::class));
         }
 
+        $resultsAggregationBuilder = $repository->createAggregationBuilder()->skip($offset);
+        if ($limit > 0) {
+            $resultsAggregationBuilder->limit($limit);
+        } else {
+            // Results have to be 0 but MongoDB does not support a limit equal to 0.
+            $resultsAggregationBuilder->match()->field(Paginator::LIMIT_ZERO_MARKER_FIELD)->equals(Paginator::LIMIT_ZERO_MARKER);
+        }
+
         $aggregationBuilder
             ->facet()
             ->field('results')->pipeline(
-                $repository->createAggregationBuilder()
-                    ->skip($offset)
-                    ->limit($limit)
+                $resultsAggregationBuilder
             )
             ->field('count')->pipeline(
                 $repository->createAggregationBuilder()
@@ -82,6 +97,10 @@ final class PaginationExtension implements AggregationResultCollectionExtensionI
      */
     public function supportsResult(string $resourceClass, string $operationName = null, array $context = []): bool
     {
+        if ($context['graphql_operation_name'] ?? false) {
+            return $this->pagination->isGraphQlEnabled($resourceClass, $operationName, $context);
+        }
+
         return $this->pagination->isEnabled($resourceClass, $operationName, $context);
     }
 
@@ -97,6 +116,23 @@ final class PaginationExtension implements AggregationResultCollectionExtensionI
             throw new RuntimeException(sprintf('The manager for "%s" must be an instance of "%s".', $resourceClass, DocumentManager::class));
         }
 
-        return new Paginator($aggregationBuilder->execute(), $manager->getUnitOfWork(), $resourceClass, $aggregationBuilder->getPipeline());
+        $resourceMetadata = $this->resourceMetadataFactory->create($resourceClass);
+        $attribute = $resourceMetadata->getCollectionOperationAttribute($operationName, 'doctrine_mongodb', [], true);
+        $executeOptions = $attribute['execute_options'] ?? [];
+
+        return new Paginator($aggregationBuilder->execute($executeOptions), $manager->getUnitOfWork(), $resourceClass, $aggregationBuilder->getPipeline());
+    }
+
+    private function addCountToContext(Builder $aggregationBuilder, array $context): array
+    {
+        if (!($context['graphql_operation_name'] ?? false)) {
+            return $context;
+        }
+
+        if (isset($context['filters']['last']) && !isset($context['filters']['before'])) {
+            $context['count'] = $aggregationBuilder->count('count')->execute()->toArray()[0]['count'];
+        }
+
+        return $context;
     }
 }

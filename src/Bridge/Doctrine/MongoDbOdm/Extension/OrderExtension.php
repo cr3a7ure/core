@@ -16,8 +16,8 @@ namespace ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Extension;
 use ApiPlatform\Core\Bridge\Doctrine\Common\PropertyHelperTrait;
 use ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\PropertyHelperTrait as MongoDbOdmPropertyHelperTrait;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
-use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ODM\MongoDB\Aggregation\Builder;
+use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * Applies selected ordering while querying resource collection.
@@ -31,8 +31,8 @@ use Doctrine\ODM\MongoDB\Aggregation\Builder;
  */
 final class OrderExtension implements AggregationCollectionExtensionInterface
 {
-    use PropertyHelperTrait;
     use MongoDbOdmPropertyHelperTrait;
+    use PropertyHelperTrait;
 
     private $order;
     private $resourceMetadataFactory;
@@ -53,8 +53,12 @@ final class OrderExtension implements AggregationCollectionExtensionInterface
         $classMetaData = $this->getClassMetadata($resourceClass);
         $identifiers = $classMetaData->getIdentifier();
         if (null !== $this->resourceMetadataFactory) {
-            $defaultOrder = $this->resourceMetadataFactory->create($resourceClass)->getAttribute('order');
-            if (null !== $defaultOrder) {
+            $defaultOrder = $this->resourceMetadataFactory->create($resourceClass)
+                   ->getCollectionOperationAttribute($operationName, 'order', [], true);
+            if (empty($defaultOrder)) {
+                $defaultOrder = $this->resourceMetadataFactory->create($resourceClass)->getAttribute('order');
+            }
+            if (\is_array($defaultOrder)) {
                 foreach ($defaultOrder as $field => $order) {
                     if (\is_int($field)) {
                         // Default direction

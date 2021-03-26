@@ -24,19 +24,20 @@ Feature: Using validations groups
       "code": "My Dummy"
     }
     """
-    Then the response status code should be 400
+    Then the response status code should be 422
     And the response should be in JSON
     And the JSON should be equal to:
     """
     {
-      "@context": "\/contexts\/ConstraintViolationList",
+      "@context": "/contexts/ConstraintViolationList",
       "@type": "ConstraintViolationList",
       "hydra:title": "An error occurred",
       "hydra:description": "name: This value should not be null.",
       "violations": [
          {
              "propertyPath": "name",
-             "message": "This value should not be null."
+             "message": "This value should not be null.",
+             "code": "ad32d13f-c3d4-423b-909a-857b961eb720"
          }
       ]
     }
@@ -52,19 +53,20 @@ Feature: Using validations groups
       "code": "My Dummy"
     }
     """
-    Then the response status code should be 400
+    Then the response status code should be 422
     And the response should be in JSON
     And the JSON should be equal to:
     """
     {
-      "@context": "\/contexts\/ConstraintViolationList",
+      "@context": "/contexts/ConstraintViolationList",
       "@type": "ConstraintViolationList",
       "hydra:title": "An error occurred",
       "hydra:description": "title: This value should not be null.",
       "violations": [
          {
              "propertyPath": "title",
-             "message": "This value should not be null."
+             "message": "This value should not be null.",
+             "code": "ad32d13f-c3d4-423b-909a-857b961eb720"
          }
       ]
     }

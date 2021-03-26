@@ -16,12 +16,18 @@ namespace ApiPlatform\Core\Bridge\Doctrine\EventListener;
 use ApiPlatform\Core\Api\IriConverterInterface;
 use ApiPlatform\Core\Api\ResourceClassResolverInterface;
 use ApiPlatform\Core\Api\UrlGeneratorInterface;
+use ApiPlatform\Core\Bridge\Symfony\Messenger\DispatchTrait;
 use ApiPlatform\Core\Exception\InvalidArgumentException;
 use ApiPlatform\Core\Exception\RuntimeException;
+use ApiPlatform\Core\GraphQl\Subscription\MercureSubscriptionIriGeneratorInterface as GraphQlMercureSubscriptionIriGeneratorInterface;
+use ApiPlatform\Core\GraphQl\Subscription\SubscriptionManagerInterface as GraphQlSubscriptionManagerInterface;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
-use ApiPlatform\Core\Util\ClassInfoTrait;
-use Doctrine\ORM\Event\OnFlushEventArgs;
+use ApiPlatform\Core\Util\ResourceClassInfoTrait;
+use Doctrine\Common\EventArgs;
+use Doctrine\ODM\MongoDB\Event\OnFlushEventArgs as MongoDbOdmOnFlushEventArgs;
+use Doctrine\ORM\Event\OnFlushEventArgs as OrmOnFlushEventArgs;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Mercure\Update;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -35,20 +41,33 @@ use Symfony\Component\Serializer\SerializerInterface;
  */
 final class PublishMercureUpdatesListener
 {
-    use ClassInfoTrait;
+    use DispatchTrait;
+    use ResourceClassInfoTrait;
+    private const ALLOWED_KEYS = [
+        'topics' => true,
+        'data' => true,
+        'private' => true,
+        'id' => true,
+        'type' => true,
+        'retry' => true,
+        'normalization_context' => true,
+    ];
 
-    private $resourceClassResolver;
     private $iriConverter;
-    private $resourceMetadataFactory;
     private $serializer;
-    private $messageBus;
     private $publisher;
     private $expressionLanguage;
-    private $createdEntities;
-    private $updatedEntities;
-    private $deletedEntities;
+    private $createdObjects;
+    private $updatedObjects;
+    private $deletedObjects;
+    private $formats;
+    private $graphQlSubscriptionManager;
+    private $graphQlMercureSubscriptionIriGenerator;
 
-    public function __construct(ResourceClassResolverInterface $resourceClassResolver, IriConverterInterface $iriConverter, ResourceMetadataFactoryInterface $resourceMetadataFactory, SerializerInterface $serializer, MessageBusInterface $messageBus = null, callable $publisher = null, ExpressionLanguage $expressionLanguage = null)
+    /**
+     * @param array<string, string[]|string> $formats
+     */
+    public function __construct(ResourceClassResolverInterface $resourceClassResolver, IriConverterInterface $iriConverter, ResourceMetadataFactoryInterface $resourceMetadataFactory, SerializerInterface $serializer, array $formats, MessageBusInterface $messageBus = null, callable $publisher = null, ?GraphQlSubscriptionManagerInterface $graphQlSubscriptionManager = null, ?GraphQlMercureSubscriptionIriGeneratorInterface $graphQlMercureSubscriptionIriGenerator = null, ExpressionLanguage $expressionLanguage = null)
     {
         if (null === $messageBus && null === $publisher) {
             throw new InvalidArgumentException('A message bus or a publisher must be provided.');
@@ -58,48 +77,60 @@ final class PublishMercureUpdatesListener
         $this->iriConverter = $iriConverter;
         $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->serializer = $serializer;
+        $this->formats = $formats;
         $this->messageBus = $messageBus;
         $this->publisher = $publisher;
-        $this->expressionLanguage = $expressionLanguage ?? class_exists(ExpressionLanguage::class) ? new ExpressionLanguage() : null;
+        $this->expressionLanguage = $expressionLanguage ?? (class_exists(ExpressionLanguage::class) ? new ExpressionLanguage() : null);
+        $this->graphQlSubscriptionManager = $graphQlSubscriptionManager;
+        $this->graphQlMercureSubscriptionIriGenerator = $graphQlMercureSubscriptionIriGenerator;
         $this->reset();
     }
 
     /**
-     * Collects created, updated and deleted entities.
+     * Collects created, updated and deleted objects.
      */
-    public function onFlush(OnFlushEventArgs $eventArgs)
+    public function onFlush(EventArgs $eventArgs): void
     {
-        $uow = $eventArgs->getEntityManager()->getUnitOfWork();
-
-        foreach ($uow->getScheduledEntityInsertions() as $entity) {
-            $this->storeEntityToPublish($entity, 'createdEntities');
+        if ($eventArgs instanceof OrmOnFlushEventArgs) {
+            $uow = $eventArgs->getEntityManager()->getUnitOfWork();
+        } elseif ($eventArgs instanceof MongoDbOdmOnFlushEventArgs) {
+            $uow = $eventArgs->getDocumentManager()->getUnitOfWork();
+        } else {
+            return;
         }
 
-        foreach ($uow->getScheduledEntityUpdates() as $entity) {
-            $this->storeEntityToPublish($entity, 'updatedEntities');
+        $methodName = $eventArgs instanceof OrmOnFlushEventArgs ? 'getScheduledEntityInsertions' : 'getScheduledDocumentInsertions';
+        foreach ($uow->{$methodName}() as $object) {
+            $this->storeObjectToPublish($object, 'createdObjects');
         }
 
-        foreach ($uow->getScheduledEntityDeletions() as $entity) {
-            $this->storeEntityToPublish($entity, 'deletedEntities');
+        $methodName = $eventArgs instanceof OrmOnFlushEventArgs ? 'getScheduledEntityUpdates' : 'getScheduledDocumentUpdates';
+        foreach ($uow->{$methodName}() as $object) {
+            $this->storeObjectToPublish($object, 'updatedObjects');
+        }
+
+        $methodName = $eventArgs instanceof OrmOnFlushEventArgs ? 'getScheduledEntityDeletions' : 'getScheduledDocumentDeletions';
+        foreach ($uow->{$methodName}() as $object) {
+            $this->storeObjectToPublish($object, 'deletedObjects');
         }
     }
 
     /**
      * Publishes updates for changes collected on flush, and resets the store.
      */
-    public function postFlush()
+    public function postFlush(): void
     {
         try {
-            foreach ($this->createdEntities as $entity) {
-                $this->publishUpdate($entity, $this->createdEntities[$entity]);
+            foreach ($this->createdObjects as $object) {
+                $this->publishUpdate($object, $this->createdObjects[$object], 'create');
             }
 
-            foreach ($this->updatedEntities as $entity) {
-                $this->publishUpdate($entity, $this->updatedEntities[$entity]);
+            foreach ($this->updatedObjects as $object) {
+                $this->publishUpdate($object, $this->updatedObjects[$object], 'update');
             }
 
-            foreach ($this->deletedEntities as $entity) {
-                $this->publishUpdate($entity, $this->deletedEntities[$entity]);
+            foreach ($this->deletedObjects as $object) {
+                $this->publishUpdate($object, $this->deletedObjects[$object], 'delete');
             }
         } finally {
             $this->reset();
@@ -108,71 +139,132 @@ final class PublishMercureUpdatesListener
 
     private function reset(): void
     {
-        $this->createdEntities = new \SplObjectStorage();
-        $this->updatedEntities = new \SplObjectStorage();
-        $this->deletedEntities = new \SplObjectStorage();
+        $this->createdObjects = new \SplObjectStorage();
+        $this->updatedObjects = new \SplObjectStorage();
+        $this->deletedObjects = new \SplObjectStorage();
     }
 
     /**
-     * @param object $entity
+     * @param object $object
      */
-    private function storeEntityToPublish($entity, string $property): void
+    private function storeObjectToPublish($object, string $property): void
     {
-        $resourceClass = $this->getObjectClass($entity);
-        if (!$this->resourceClassResolver->isResourceClass($resourceClass)) {
+        if (null === $resourceClass = $this->getResourceClass($object)) {
             return;
         }
 
-        $value = $this->resourceMetadataFactory->create($resourceClass)->getAttribute('mercure', false);
-        if (false === $value) {
-            return;
-        }
+        $options = $this->resourceMetadataFactory->create($resourceClass)->getAttribute('mercure', false);
 
-        if (\is_string($value)) {
+        if (\is_string($options)) {
             if (null === $this->expressionLanguage) {
                 throw new RuntimeException('The Expression Language component is not installed. Try running "composer require symfony/expression-language".');
             }
 
-            $value = $this->expressionLanguage->evaluate($value, ['object' => $entity]);
+            $options = $this->expressionLanguage->evaluate($options, ['object' => $object]);
         }
 
-        if (true === $value) {
-            $value = [];
+        if (false === $options) {
+            return;
         }
 
-        if (!\is_array($value)) {
-            throw new InvalidArgumentException(sprintf('The value of the "mercure" attribute of the "%s" resource class must be a boolean, an array of targets or a valid expression, "%s" given.', $resourceClass, \gettype($value)));
+        if (true === $options) {
+            $options = [];
         }
 
-        if ('deletedEntities' === $property) {
-            $this->deletedEntities[(object) [
-                'id' => $this->iriConverter->getIriFromItem($entity),
-                'iri' => $this->iriConverter->getIriFromItem($entity, UrlGeneratorInterface::ABS_URL),
-            ]] = $value;
+        if (!\is_array($options)) {
+            throw new InvalidArgumentException(sprintf('The value of the "mercure" attribute of the "%s" resource class must be a boolean, an array of options or an expression returning this array, "%s" given.', $resourceClass, \gettype($options)));
+        }
+
+        foreach ($options as $key => $value) {
+            if (0 === $key) {
+                if (method_exists(Update::class, 'isPrivate')) {
+                    throw new \InvalidArgumentException('Targets do not exist anymore since Mercure 0.10. Mark the update as private instead or downgrade the Mercure Component to version 0.3');
+                }
+
+                @trigger_error('Targets do not exist anymore since Mercure 0.10. Mark the update as private instead.', \E_USER_DEPRECATED);
+                break;
+            }
+
+            if (!isset(self::ALLOWED_KEYS[$key])) {
+                throw new InvalidArgumentException(sprintf('The option "%s" set in the "mercure" attribute of the "%s" resource does not exist. Existing options: "%s"', $key, $resourceClass, implode('", "', self::ALLOWED_KEYS)));
+            }
+        }
+
+        if ('deletedObjects' === $property) {
+            $this->deletedObjects[(object) [
+                'id' => $this->iriConverter->getIriFromItem($object),
+                'iri' => $this->iriConverter->getIriFromItem($object, UrlGeneratorInterface::ABS_URL),
+            ]] = $options;
 
             return;
         }
 
-        $this->$property[$entity] = $value;
+        $this->{$property}[$object] = $options;
     }
 
     /**
-     * @param object|string $entity
+     * @param object $object
      */
-    private function publishUpdate($entity, array $targets): void
+    private function publishUpdate($object, array $options, string $type): void
     {
-        if ($entity instanceof \stdClass) {
-            // By convention, if the entity has been deleted, we send only its IRI
+        if ($object instanceof \stdClass) {
+            // By convention, if the object has been deleted, we send only its IRI.
             // This may change in the feature, because it's not JSON Merge Patch compliant,
-            // and I'm not a fond of this approach
-            $iri = $entity->iri;
-            $data = json_encode(['@id' => $entity->id]);
+            // and I'm not a fond of this approach.
+            $iri = $options['topics'] ?? $object->iri;
+            /** @var string $data */
+            $data = json_encode(['@id' => $object->id]);
         } else {
-            $iri = $this->iriConverter->getIriFromItem($entity, UrlGeneratorInterface::ABS_URL);
-            $data = $this->serializer->serialize($entity, 'jsonld');
+            $resourceClass = $this->getObjectClass($object);
+            $context = $options['normalization_context'] ?? $this->resourceMetadataFactory->create($resourceClass)->getAttribute('normalization_context', []);
+
+            $iri = $options['topics'] ?? $this->iriConverter->getIriFromItem($object, UrlGeneratorInterface::ABS_URL);
+            $data = $options['data'] ?? $this->serializer->serialize($object, key($this->formats), $context);
         }
 
-        $update = new Update($iri, $data, $targets);
-        $this->messageBus ? $this->messageBus->dispatch($update) : ($this->publisher)($update);
+        $updates = array_merge([$this->buildUpdate($iri, $data, $options)], $this->getGraphQlSubscriptionUpdates($object, $options, $type));
+
+        foreach ($updates as $update) {
+            $this->messageBus ? $this->dispatch($update) : ($this->publisher)($update);
+        }
+    }
+
+    /**
+     * @param object $object
+     *
+     * @return Update[]
+     */
+    private function getGraphQlSubscriptionUpdates($object, array $options, string $type): array
+    {
+        if ('update' !== $type || !$this->graphQlSubscriptionManager || !$this->graphQlMercureSubscriptionIriGenerator) {
+            return [];
+        }
+
+        $payloads = $this->graphQlSubscriptionManager->getPushPayloads($object);
+
+        $updates = [];
+        foreach ($payloads as [$subscriptionId, $data]) {
+            $updates[] = $this->buildUpdate(
+                $this->graphQlMercureSubscriptionIriGenerator->generateTopicIri($subscriptionId),
+                (string) (new JsonResponse($data))->getContent(),
+                $options
+            );
+        }
+
+        return $updates;
+    }
+
+    /**
+     * @param string|string[] $iri
+     */
+    private function buildUpdate($iri, string $data, array $options): Update
+    {
+        if (method_exists(Update::class, 'isPrivate')) {
+            return new Update($iri, $data, $options['private'] ?? false, $options['id'] ?? null, $options['type'] ?? null, $options['retry'] ?? null);
+        }
+
+        // Mercure Component < 0.4.
+        /* @phpstan-ignore-next-line */
+        return new Update($iri, $data, $options);
     }
 }

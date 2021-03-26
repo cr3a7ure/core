@@ -18,6 +18,8 @@ use ApiPlatform\Core\Test\DoctrineMongoDbOdmFilterTestCase;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\Common\Filter\RangeFilterTestTrait;
 
 /**
+ * @group mongodb
+ *
  * @author Alan Poulain <contact@alanpoulain.eu>
  */
 class RangeFilterTest extends DoctrineMongoDbOdmFilterTestCase
@@ -444,9 +446,18 @@ class RangeFilterTest extends DoctrineMongoDbOdmFilterTestCase
                         [
                             '$match' => [
                                 'dummyPrice' => [
-                                    '$lte' => '9.99',
-                                    '$gte' => '15.99',
+                                    '$gte' => 9.99,
+                                    '$lte' => 15.99,
                                 ],
+                            ],
+                        ],
+                    ],
+                ],
+                'between (same values)' => [
+                    [
+                        [
+                            '$match' => [
+                                'dummyPrice' => 9.99,
                             ],
                         ],
                     ],
@@ -465,7 +476,7 @@ class RangeFilterTest extends DoctrineMongoDbOdmFilterTestCase
                         [
                             '$match' => [
                                 'dummyPrice' => [
-                                    '$lt' => '9.99',
+                                    '$lt' => 9.99,
                                 ],
                             ],
                         ],
@@ -479,7 +490,7 @@ class RangeFilterTest extends DoctrineMongoDbOdmFilterTestCase
                         [
                             '$match' => [
                                 'dummyPrice' => [
-                                    '$lte' => '9.99',
+                                    '$lte' => 9.99,
                                 ],
                             ],
                         ],
@@ -493,7 +504,7 @@ class RangeFilterTest extends DoctrineMongoDbOdmFilterTestCase
                         [
                             '$match' => [
                                 'dummyPrice' => [
-                                    '$gt' => '9.99',
+                                    '$gt' => 9.99,
                                 ],
                             ],
                         ],
@@ -507,7 +518,7 @@ class RangeFilterTest extends DoctrineMongoDbOdmFilterTestCase
                         [
                             '$match' => [
                                 'dummyPrice' => [
-                                    '$gte' => '9.99',
+                                    '$gte' => 9.99,
                                 ],
                             ],
                         ],
@@ -521,14 +532,14 @@ class RangeFilterTest extends DoctrineMongoDbOdmFilterTestCase
                         [
                             '$match' => [
                                 'dummyPrice' => [
-                                    '$gte' => '9.99',
+                                    '$gte' => 9.99,
                                 ],
                             ],
                         ],
                         [
                             '$match' => [
                                 'dummyPrice' => [
-                                    '$lte' => '19.99',
+                                    '$lte' => 19.99,
                                 ],
                             ],
                         ],

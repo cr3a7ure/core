@@ -28,7 +28,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 class RelatedToDummyFriend
 {
     /**
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      */
     private $id;
 
@@ -51,7 +51,7 @@ class RelatedToDummyFriend
     private $description;
 
     /**
-     * @ODM\ReferenceOne(targetDocument=DummyFriend::class)
+     * @ODM\ReferenceOne(targetDocument=DummyFriend::class, storeAs="id")
      * @Groups({"fakemanytomany", "friends"})
      * @Assert\NotNull
      */

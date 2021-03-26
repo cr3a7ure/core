@@ -29,7 +29,7 @@ use Symfony\Component\Serializer\Annotation as Serializer;
  *     itemOperations={"get"={"swagger_context"={"tags"={}}, "openapi_context"={"tags"={}}}, "put", "delete"},
  *     attributes={
  *         "sunset"="2050-01-01",
- *         "normalization_context"={"groups"="colors"}
+ *         "normalization_context"={"groups"={"colors"}}
  *     }
  * )
  * @ODM\Document
@@ -44,7 +44,7 @@ class DummyCar
     /**
      * @var int The entity Id
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      */
     private $id;
 
@@ -54,9 +54,39 @@ class DummyCar
      * @ODM\ReferenceMany(targetDocument=DummyCarColor::class, mappedBy="car")
      *
      * @Serializer\Groups({"colors"})
-     * @ApiFilter(SearchFilter::class, properties={"colors.prop"="ipartial"})
+     * @ApiFilter(SearchFilter::class, properties={"colors.prop"="ipartial", "colors"="exact"})
      */
     private $colors;
+
+    /**
+     * @var mixed Something else
+     *
+     * @ODM\ReferenceMany(targetDocument=DummyCarColor::class, mappedBy="car")
+     *
+     * @Serializer\Groups({"colors"})
+     * @ApiFilter(SearchFilter::class, strategy="exact")
+     */
+    private $secondColors;
+
+    /**
+     * @var mixed Something else
+     *
+     * @ODM\ReferenceMany(targetDocument=DummyCarColor::class, mappedBy="car")
+     *
+     * @Serializer\Groups({"colors"})
+     * @ApiFilter(SearchFilter::class, strategy="exact")
+     */
+    private $thirdColors;
+
+    /**
+     * @var mixed Something else
+     *
+     * @ODM\ReferenceMany(targetDocument=UuidIdentifierDummy::class)
+     *
+     * @Serializer\Groups({"colors"})
+     * @ApiFilter(SearchFilter::class, strategy="exact")
+     */
+    private $uuid;
 
     /**
      * @var string
@@ -69,7 +99,7 @@ class DummyCar
     /**
      * @var bool
      *
-     * @ODM\Field(type="boolean")
+     * @ODM\Field(type="bool")
      */
     private $canSell;
 
@@ -79,6 +109,16 @@ class DummyCar
      * @ODM\Field(type="date")
      */
     private $availableAt;
+
+    /**
+     * @var string
+     *
+     * @Serializer\Groups({"colors"})
+     * @Serializer\SerializedName("carBrand")
+     *
+     * @ODM\Field
+     */
+    private $brand = 'DummyBrand';
 
     public function __construct()
     {
@@ -100,6 +140,36 @@ class DummyCar
         $this->colors = $colors;
 
         return $this;
+    }
+
+    public function getSecondColors()
+    {
+        return $this->secondColors;
+    }
+
+    public function setSecondColors($secondColors)
+    {
+        $this->secondColors = $secondColors;
+    }
+
+    public function getThirdColors()
+    {
+        return $this->thirdColors;
+    }
+
+    public function setThirdColors($thirdColors)
+    {
+        $this->thirdColors = $thirdColors;
+    }
+
+    public function getUuid()
+    {
+        return $this->uuid;
+    }
+
+    public function setUuid($uuid)
+    {
+        $this->uuid = $uuid;
     }
 
     public function getName(): string
@@ -130,5 +200,15 @@ class DummyCar
     public function setAvailableAt(\DateTime $availableAt)
     {
         $this->availableAt = $availableAt;
+    }
+
+    public function getBrand(): string
+    {
+        return $this->brand;
+    }
+
+    public function setBrand(string $brand): void
+    {
+        $this->brand = $brand;
     }
 }

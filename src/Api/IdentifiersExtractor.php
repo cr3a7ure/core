@@ -16,7 +16,7 @@ namespace ApiPlatform\Core\Api;
 use ApiPlatform\Core\Exception\RuntimeException;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
-use ApiPlatform\Core\Util\ClassInfoTrait;
+use ApiPlatform\Core\Util\ResourceClassInfoTrait;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 
@@ -27,12 +27,11 @@ use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
  */
 final class IdentifiersExtractor implements IdentifiersExtractorInterface
 {
-    use ClassInfoTrait;
+    use ResourceClassInfoTrait;
 
     private $propertyNameCollectionFactory;
     private $propertyMetadataFactory;
     private $propertyAccessor;
-    private $resourceClassResolver;
 
     public function __construct(PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, PropertyAccessorInterface $propertyAccessor = null, ResourceClassResolverInterface $resourceClassResolver = null)
     {
@@ -42,7 +41,7 @@ final class IdentifiersExtractor implements IdentifiersExtractorInterface
         $this->resourceClassResolver = $resourceClassResolver;
 
         if (null === $this->resourceClassResolver) {
-            @trigger_error(sprintf('Not injecting %s in the CachedIdentifiersExtractor might introduce cache issues with object identifiers.', ResourceClassResolverInterface::class), E_USER_DEPRECATED);
+            @trigger_error(sprintf('Not injecting %s in the IdentifiersExtractor might introduce cache issues with object identifiers.', ResourceClassResolverInterface::class), \E_USER_DEPRECATED);
         }
     }
 
@@ -52,10 +51,18 @@ final class IdentifiersExtractor implements IdentifiersExtractorInterface
     public function getIdentifiersFromResourceClass(string $resourceClass): array
     {
         $identifiers = [];
-        foreach ($this->propertyNameCollectionFactory->create($resourceClass) as $property) {
+        foreach ($properties = $this->propertyNameCollectionFactory->create($resourceClass) as $property) {
             if ($this->propertyMetadataFactory->create($resourceClass, $property)->isIdentifier() ?? false) {
                 $identifiers[] = $property;
             }
+        }
+
+        if (!$identifiers) {
+            if (\in_array('id', iterator_to_array($properties), true)) {
+                return ['id'];
+            }
+
+            throw new RuntimeException(sprintf('No identifier defined in "%s". You should add #[\ApiPlatform\Core\Annotation\ApiProperty(identifier: true)]" on the property identifying the resource."', $resourceClass));
         }
 
         return $identifiers;
@@ -67,23 +74,22 @@ final class IdentifiersExtractor implements IdentifiersExtractorInterface
     public function getIdentifiersFromItem($item): array
     {
         $identifiers = [];
-        $resourceClass = $this->getObjectClass($item);
+        $resourceClass = $this->getResourceClass($item, true);
+        $identifierProperties = $this->getIdentifiersFromResourceClass($resourceClass);
+
         foreach ($this->propertyNameCollectionFactory->create($resourceClass) as $propertyName) {
-            $propertyMetadata = $this->propertyMetadataFactory->create($resourceClass, $propertyName);
-            $identifier = $propertyMetadata->isIdentifier();
-            if (null === $identifier || false === $identifier) {
+            if (!\in_array($propertyName, $identifierProperties, true)) {
                 continue;
             }
 
+            $propertyMetadata = $this->propertyMetadataFactory->create($resourceClass, $propertyName);
             $identifier = $identifiers[$propertyName] = $this->propertyAccessor->getValue($item, $propertyName);
 
             if (!\is_object($identifier)) {
                 continue;
             }
 
-            $relatedResourceClass = $this->getObjectClass($identifier);
-
-            if (null !== $this->resourceClassResolver && !$this->resourceClassResolver->isResourceClass($relatedResourceClass)) {
+            if (null === $relatedResourceClass = $this->getResourceClass($identifier)) {
                 continue;
             }
 

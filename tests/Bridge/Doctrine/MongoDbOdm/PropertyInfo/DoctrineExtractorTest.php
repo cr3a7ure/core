@@ -18,6 +18,7 @@ use ApiPlatform\Core\Test\DoctrineMongoDbOdmSetup;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\MongoDbOdm\PropertyInfo\Fixtures\DoctrineDummy;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\MongoDbOdm\PropertyInfo\Fixtures\DoctrineEmbeddable;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\MongoDbOdm\PropertyInfo\Fixtures\DoctrineFooType;
+use ApiPlatform\Core\Tests\Bridge\Doctrine\MongoDbOdm\PropertyInfo\Fixtures\DoctrineGeneratedValue;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\MongoDbOdm\PropertyInfo\Fixtures\DoctrineRelation;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\MongoDbOdm\PropertyInfo\Fixtures\DoctrineWithEmbedded;
 use Doctrine\Common\Collections\Collection;
@@ -27,6 +28,8 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyInfo\Type;
 
 /**
+ * @group mongodb
+ *
  * @author Kévin Dunglas <dunglas@gmail.com>
  * @author Alan Poulain <contact@alanpoulain.eu>
  */
@@ -49,15 +52,13 @@ class DoctrineExtractorTest extends TestCase
                 'binUuidRfc4122',
                 'timestamp',
                 'date',
+                'dateImmutable',
                 'float',
                 'bool',
-                'boolean',
                 'customFoo',
                 'int',
-                'integer',
                 'string',
                 'key',
-                'file',
                 'hash',
                 'collection',
                 'objectId',
@@ -84,7 +85,7 @@ class DoctrineExtractorTest extends TestCase
      */
     public function testExtract(string $property, array $type = null): void
     {
-        $this->assertEquals($type, $this->createExtractor()->getTypes(DoctrineDummy::class, $property, []));
+        $this->assertEquals($type, $this->createExtractor()->getTypes(DoctrineDummy::class, $property));
     }
 
     public function testExtractWithEmbedOne(): void
@@ -99,8 +100,7 @@ class DoctrineExtractorTest extends TestCase
 
         $actualTypes = $this->createExtractor()->getTypes(
             DoctrineWithEmbedded::class,
-            'embedOne',
-            []
+            'embedOne'
         );
 
         $this->assertEquals($expectedTypes, $actualTypes);
@@ -121,8 +121,7 @@ class DoctrineExtractorTest extends TestCase
 
         $actualTypes = $this->createExtractor()->getTypes(
             DoctrineWithEmbedded::class,
-            'embedMany',
-            []
+            'embedMany'
         );
 
         $this->assertEquals($expectedTypes, $actualTypes);
@@ -141,14 +140,12 @@ class DoctrineExtractorTest extends TestCase
             ['binUuidRfc4122', [new Type(Type::BUILTIN_TYPE_STRING)]],
             ['timestamp', [new Type(Type::BUILTIN_TYPE_STRING)]],
             ['date', [new Type(Type::BUILTIN_TYPE_OBJECT, false, 'DateTime')]],
+            ['dateImmutable', [new Type(Type::BUILTIN_TYPE_OBJECT, false, 'DateTimeImmutable')]],
             ['float', [new Type(Type::BUILTIN_TYPE_FLOAT)]],
             ['bool', [new Type(Type::BUILTIN_TYPE_BOOL)]],
-            ['boolean', [new Type(Type::BUILTIN_TYPE_BOOL)]],
             ['int', [new Type(Type::BUILTIN_TYPE_INT)]],
-            ['integer', [new Type(Type::BUILTIN_TYPE_INT)]],
             ['string', [new Type(Type::BUILTIN_TYPE_STRING)]],
             ['key', [new Type(Type::BUILTIN_TYPE_INT)]],
-            ['file', null],
             ['hash', [new Type(Type::BUILTIN_TYPE_ARRAY, false, null, true)]],
             ['collection', [new Type(Type::BUILTIN_TYPE_ARRAY, false, null, true, new Type(TYPE::BUILTIN_TYPE_INT))]],
             ['objectId', [new Type(Type::BUILTIN_TYPE_STRING)]],
@@ -193,13 +190,22 @@ class DoctrineExtractorTest extends TestCase
         $this->assertNull($this->createExtractor()->getTypes('Not\Exist', 'baz'));
     }
 
+    public function testGeneratedValueNotWritable()
+    {
+        $extractor = $this->createExtractor();
+        $this->assertFalse($extractor->isWritable(DoctrineGeneratedValue::class, 'id'));
+        $this->assertNull($extractor->isReadable(DoctrineGeneratedValue::class, 'id'));
+        $this->assertNull($extractor->isWritable(DoctrineGeneratedValue::class, 'foo'));
+        $this->assertNull($extractor->isReadable(DoctrineGeneratedValue::class, 'foo'));
+    }
+
     private function createExtractor(): DoctrineExtractor
     {
         $config = DoctrineMongoDbOdmSetup::createAnnotationMetadataConfiguration([__DIR__.\DIRECTORY_SEPARATOR.'Fixtures'], true);
         $documentManager = DocumentManager::create(null, $config);
 
-        if (!MongoDbType::hasType('foo')) {
-            MongoDbType::addType('foo', DoctrineFooType::class);
+        if (!MongoDbType::hasType('custom_foo')) {
+            MongoDbType::addType('custom_foo', DoctrineFooType::class);
         }
 
         return new DoctrineExtractor($documentManager);

@@ -13,19 +13,19 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Symfony\Bundle\EventListener;
 
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 final class SwaggerUiListener
 {
     /**
      * Sets SwaggerUiAction as controller if the requested format is HTML.
      */
-    public function onKernelRequest(GetResponseEvent $event)
+    public function onKernelRequest(RequestEvent $event): void
     {
         $request = $event->getRequest();
         if (
             'html' !== $request->getRequestFormat('') ||
-            (!$request->attributes->has('_api_resource_class') && !$request->attributes->has('_api_respond'))
+            !($request->attributes->has('_api_resource_class') || $request->attributes->getBoolean('_api_respond', false))
         ) {
             return;
         }

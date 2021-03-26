@@ -10,14 +10,6 @@
  */
 
 declare(strict_types=1);
-/*
- * This file is part of the API Platform project.
- *
- * (c) Kévin Dunglas <dunglas@gmail.com>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
 
 namespace ApiPlatform\Core\Tests\Bridge\Symfony\Validator\Exception;
 
@@ -43,10 +35,10 @@ class ValidationExceptionTest extends TestCase
         $this->assertInstanceOf(RuntimeException::class, $e);
         $this->assertInstanceOf(\RuntimeException::class, $e);
 
-        $this->assertEquals(<<<TXT
+        $this->assertEquals(str_replace(\PHP_EOL, "\n", <<<TXT
 message 1
 foo: message 2
 TXT
-, $e->__toString());
+), $e->__toString());
     }
 }

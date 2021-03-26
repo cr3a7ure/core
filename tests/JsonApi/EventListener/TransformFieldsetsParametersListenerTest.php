@@ -17,15 +17,18 @@ use ApiPlatform\Core\JsonApi\EventListener\TransformFieldsetsParametersListener;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 class TransformFieldsetsParametersListenerTest extends TestCase
 {
+    use ProphecyTrait;
+
     private $listener;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
         $resourceMetadataFactoryProphecy->create(Dummy::class)->willReturn(new ResourceMetadata('dummy'));
@@ -40,7 +43,7 @@ class TransformFieldsetsParametersListenerTest extends TestCase
 
         $request = $expectedRequest->duplicate();
 
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
         $eventProphecy->getRequest()->willReturn($request)->shouldBeCalled();
 
         $this->listener->onKernelRequest($eventProphecy->reveal());
@@ -50,7 +53,7 @@ class TransformFieldsetsParametersListenerTest extends TestCase
 
     public function testOnKernelRequestWithInvalidFilter()
     {
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
 
         $expectedRequest = new Request();
         $expectedRequest->setRequestFormat('jsonapi');
@@ -79,7 +82,7 @@ class TransformFieldsetsParametersListenerTest extends TestCase
         );
         $request->setRequestFormat('jsonapi');
 
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
         $eventProphecy->getRequest()->willReturn($request)->shouldBeCalled();
 
         $this->listener->onKernelRequest($eventProphecy->reveal());
@@ -107,7 +110,7 @@ class TransformFieldsetsParametersListenerTest extends TestCase
         );
         $request->setRequestFormat('jsonapi');
 
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
         $eventProphecy->getRequest()->willReturn($request)->shouldBeCalled();
 
         $this->listener->onKernelRequest($eventProphecy->reveal());
@@ -134,7 +137,7 @@ class TransformFieldsetsParametersListenerTest extends TestCase
         );
         $request->setRequestFormat('jsonapi');
 
-        $eventProphecy = $this->prophesize(GetResponseEvent::class);
+        $eventProphecy = $this->prophesize(RequestEvent::class);
         $eventProphecy->getRequest()->willReturn($request)->shouldBeCalled();
 
         $this->listener->onKernelRequest($eventProphecy->reveal());

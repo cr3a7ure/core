@@ -31,6 +31,7 @@ trait SearchFilterTrait
 
     protected $iriConverter;
     protected $propertyAccessor;
+    protected $identifiersExtractor;
 
     /**
      * {@inheritdoc}
@@ -58,18 +59,19 @@ trait SearchFilterTrait
                 $metadata = $this->getClassMetadata($resourceClass);
             }
 
+            $propertyName = $this->normalizePropertyName($property);
             if ($metadata->hasField($field)) {
                 $typeOfField = $this->getType($metadata->getTypeOfField($field));
                 $strategy = $this->getProperties()[$property] ?? self::STRATEGY_EXACT;
-                $filterParameterNames = [$property];
+                $filterParameterNames = [$propertyName];
 
                 if (self::STRATEGY_EXACT === $strategy) {
-                    $filterParameterNames[] = $property.'[]';
+                    $filterParameterNames[] = $propertyName.'[]';
                 }
 
                 foreach ($filterParameterNames as $filterParameterName) {
                     $description[$filterParameterName] = [
-                        'property' => $property,
+                        'property' => $propertyName,
                         'type' => $typeOfField,
                         'required' => false,
                         'strategy' => $strategy,
@@ -78,13 +80,13 @@ trait SearchFilterTrait
                 }
             } elseif ($metadata->hasAssociation($field)) {
                 $filterParameterNames = [
-                    $property,
-                    $property.'[]',
+                    $propertyName,
+                    $propertyName.'[]',
                 ];
 
                 foreach ($filterParameterNames as $filterParameterName) {
                     $description[$filterParameterName] = [
-                        'property' => $property,
+                        'property' => $propertyName,
                         'type' => 'string',
                         'required' => false,
                         'strategy' => self::STRATEGY_EXACT,
@@ -110,15 +112,17 @@ trait SearchFilterTrait
 
     abstract protected function getPropertyAccessor(): PropertyAccessorInterface;
 
+    abstract protected function normalizePropertyName($property);
+
     /**
      * Gets the ID from an IRI or a raw ID.
      */
     protected function getIdFromValue(string $value)
     {
         try {
-            if (null !== $item = $this->getIriConverter()->getItemFromIri($value, ['fetch_data' => false])) {
-                return $this->getPropertyAccessor()->getValue($item, 'id');
-            }
+            $item = $this->getIriConverter()->getItemFromIri($value, ['fetch_data' => false]);
+
+            return $this->getPropertyAccessor()->getValue($item, 'id');
         } catch (InvalidArgumentException $e) {
             // Do nothing, return the raw value
         }
@@ -150,11 +154,13 @@ trait SearchFilterTrait
 
     /**
      * When the field should be an integer, check that the given value is a valid one.
+     *
+     * @param mixed|null $type
      */
     protected function hasValidValues(array $values, $type = null): bool
     {
         foreach ($values as $key => $value) {
-            if (self::DOCTRINE_INTEGER_TYPE === $type && null !== $value && false === filter_var($value, FILTER_VALIDATE_INT)) {
+            if (null !== $value && \in_array($type, (array) self::DOCTRINE_INTEGER_TYPE, true) && false === filter_var($value, \FILTER_VALIDATE_INT)) {
                 return false;
             }
         }

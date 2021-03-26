@@ -13,8 +13,22 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\GraphQl\Serializer;
 
+use ApiPlatform\Core\Api\IdentifiersExtractorInterface;
+use ApiPlatform\Core\Api\IriConverterInterface;
+use ApiPlatform\Core\Api\ResourceClassResolverInterface;
+use ApiPlatform\Core\DataProvider\ItemDataProviderInterface;
+use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
+use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Serializer\ItemNormalizer as BaseItemNormalizer;
+use ApiPlatform\Core\Util\ClassInfoTrait;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use Symfony\Component\Serializer\Exception\UnexpectedValueException;
+use Symfony\Component\Serializer\Mapping\Factory\ClassMetadataFactoryInterface;
+use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 
 /**
  * GraphQL normalizer.
@@ -23,24 +37,49 @@ use ApiPlatform\Core\Serializer\ItemNormalizer as BaseItemNormalizer;
  */
 final class ItemNormalizer extends BaseItemNormalizer
 {
-    const FORMAT = 'graphql';
-    const ITEM_KEY = '#item';
+    use ClassInfoTrait;
+
+    public const FORMAT = 'graphql';
+    public const ITEM_RESOURCE_CLASS_KEY = '#itemResourceClass';
+    public const ITEM_IDENTIFIERS_KEY = '#itemIdentifiers';
+
+    private $identifiersExtractor;
+
+    public function __construct(PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, IriConverterInterface $iriConverter, IdentifiersExtractorInterface $identifiersExtractor, ResourceClassResolverInterface $resourceClassResolver, PropertyAccessorInterface $propertyAccessor = null, NameConverterInterface $nameConverter = null, ClassMetadataFactoryInterface $classMetadataFactory = null, ItemDataProviderInterface $itemDataProvider = null, bool $allowPlainIdentifiers = false, LoggerInterface $logger = null, iterable $dataTransformers = [], ResourceMetadataFactoryInterface $resourceMetadataFactory = null)
+    {
+        parent::__construct($propertyNameCollectionFactory, $propertyMetadataFactory, $iriConverter, $resourceClassResolver, $propertyAccessor, $nameConverter, $classMetadataFactory, $itemDataProvider, $allowPlainIdentifiers, $logger ?: new NullLogger(), $dataTransformers, $resourceMetadataFactory);
+
+        $this->identifiersExtractor = $identifiersExtractor;
+    }
 
     /**
      * {@inheritdoc}
      */
-    public function supportsNormalization($data, $format = null)
+    public function supportsNormalization($data, $format = null): bool
     {
         return self::FORMAT === $format && parent::supportsNormalization($data, $format);
     }
 
     /**
      * {@inheritdoc}
+     *
+     * @throws UnexpectedValueException
      */
     public function normalize($object, $format = null, array $context = [])
     {
+        if (null !== $this->getOutputClass($this->getObjectClass($object), $context)) {
+            return parent::normalize($object, $format, $context);
+        }
+
         $data = parent::normalize($object, $format, $context);
-        $data[self::ITEM_KEY] = serialize($object); // calling serialize prevent weird normalization process done by Webonyx's GraphQL PHP
+        if (!\is_array($data)) {
+            throw new UnexpectedValueException('Expected data to be an array.');
+        }
+
+        if (!($context['no_resolver_data'] ?? false)) {
+            $data[self::ITEM_RESOURCE_CLASS_KEY] = $this->getObjectClass($object);
+            $data[self::ITEM_IDENTIFIERS_KEY] = $this->identifiersExtractor->getIdentifiersFromItem($object);
+        }
 
         return $data;
     }
@@ -48,7 +87,7 @@ final class ItemNormalizer extends BaseItemNormalizer
     /**
      * {@inheritdoc}
      */
-    protected function normalizeCollectionOfRelations(PropertyMetadata $propertyMetadata, $attributeValue, string $resourceClass, string $format = null, array $context): array
+    protected function normalizeCollectionOfRelations(PropertyMetadata $propertyMetadata, $attributeValue, string $resourceClass, ?string $format, array $context): array
     {
         // to-many are handled directly by the GraphQL resolver
         return [];
@@ -57,7 +96,7 @@ final class ItemNormalizer extends BaseItemNormalizer
     /**
      * {@inheritdoc}
      */
-    public function supportsDenormalization($data, $type, $format = null)
+    public function supportsDenormalization($data, $type, $format = null): bool
     {
         return self::FORMAT === $format && parent::supportsDenormalization($data, $type, $format);
     }
@@ -69,7 +108,7 @@ final class ItemNormalizer extends BaseItemNormalizer
     {
         $allowedAttributes = parent::getAllowedAttributes($classOrObject, $context, $attributesAsString);
 
-        if (($context['api_denormalize'] ?? false) && false !== ($indexId = array_search('id', $allowedAttributes, true))) {
+        if (($context['api_denormalize'] ?? false) && \is_array($allowedAttributes) && false !== ($indexId = array_search('id', $allowedAttributes, true))) {
             $allowedAttributes[] = '_id';
             array_splice($allowedAttributes, (int) $indexId, 1);
         }
@@ -80,7 +119,7 @@ final class ItemNormalizer extends BaseItemNormalizer
     /**
      * {@inheritdoc}
      */
-    protected function setAttributeValue($object, $attribute, $value, $format = null, array $context = [])
+    protected function setAttributeValue($object, $attribute, $value, $format = null, array $context = []): void
     {
         if ('_id' === $attribute) {
             $attribute = 'id';

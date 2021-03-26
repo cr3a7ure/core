@@ -13,12 +13,15 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Doctrine\Common\Util;
 
+use ApiPlatform\Core\Exception\InvalidIdentifierException;
 use ApiPlatform\Core\Exception\PropertyNotFoundException;
-use Doctrine\Common\Persistence\ObjectManager;
+use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
+use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\DBAL\Types\Type as DBALType;
 use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Types\Type as MongoDbType;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ObjectManager;
 
 /**
  * @internal
@@ -27,6 +30,7 @@ trait IdentifierManagerTrait
 {
     private $propertyNameCollectionFactory;
     private $propertyMetadataFactory;
+    private $resourceMetadataFactory;
 
     /**
      * Transform and check the identifier, composite or not.
@@ -34,6 +38,7 @@ trait IdentifierManagerTrait
      * @param int|string $id
      *
      * @throws PropertyNotFoundException
+     * @throws InvalidIdentifierException
      */
     private function normalizeIdentifiers($id, ObjectManager $manager, string $resourceClass): array
     {
@@ -71,16 +76,32 @@ trait IdentifierManagerTrait
 
             $identifier = null === $identifiersMap ? $identifierValues[$i] ?? null : $identifiersMap[$propertyName] ?? null;
             if (null === $identifier) {
-                throw new PropertyNotFoundException(sprintf('Invalid identifier "%s", "%s" was not found.', $id, $propertyName));
+                $exceptionMessage = sprintf('Invalid identifier "%s", "%s" was not found', $id, $propertyName);
+                if ($this->resourceMetadataFactory instanceof ResourceMetadataFactoryInterface) {
+                    $resourceMetadata = $this->resourceMetadataFactory->create($resourceClass);
+                    $exceptionMessage .= sprintf(' for resource "%s"', $resourceMetadata->getShortName());
+                }
+
+                throw new PropertyNotFoundException($exceptionMessage.'.');
             }
 
             $doctrineTypeName = $doctrineClassMetadata->getTypeOfField($propertyName);
 
-            if ($isOrm && null !== $doctrineTypeName && DBALType::hasType($doctrineTypeName)) {
-                $identifier = DBALType::getType($doctrineTypeName)->convertToPHPValue($identifier, $platform);
-            }
-            if ($isOdm && null !== $doctrineTypeName && MongoDbType::hasType($doctrineTypeName)) {
-                $identifier = MongoDbType::getType($doctrineTypeName)->convertToPHPValue($identifier);
+            try {
+                if ($isOrm && null !== $doctrineTypeName && DBALType::hasType($doctrineTypeName)) {
+                    $identifier = DBALType::getType($doctrineTypeName)->convertToPHPValue($identifier, $platform);
+                }
+                if ($isOdm && null !== $doctrineTypeName && MongoDbType::hasType($doctrineTypeName)) {
+                    $identifier = MongoDbType::getType($doctrineTypeName)->convertToPHPValue($identifier);
+                }
+            } catch (ConversionException $e) {
+                $exceptionMessage = sprintf('Invalid value "%s" provided for an identifier', $propertyName);
+                if ($this->resourceMetadataFactory instanceof ResourceMetadataFactoryInterface) {
+                    $resourceMetadata = $this->resourceMetadataFactory->create($resourceClass);
+                    $exceptionMessage .= sprintf(' for resource "%s"', $resourceMetadata->getShortName());
+                }
+
+                throw new InvalidIdentifierException($exceptionMessage.'.', $e->getCode(), $e);
             }
 
             $identifiers[$propertyName] = $identifier;

@@ -27,6 +27,11 @@ use Symfony\Component\Validator\Constraints as Assert;
  * @author Alexandre Delplace <alexandre.delplacemille@gmail.com>
  *
  * @ApiResource(attributes={
+ *     "doctrine_mongodb"={
+ *         "execute_options"={
+ *             "allowDiskUse"=true
+ *         }
+ *     },
  *     "filters"={
  *         "my_dummy.mongodb.boolean",
  *         "my_dummy.mongodb.date",
@@ -45,7 +50,7 @@ class Dummy
     /**
      * @var int The id
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer", nullable=true)
+     * @ODM\Id(strategy="INCREMENT", type="int", nullable=true)
      */
     private $id;
 
@@ -89,7 +94,7 @@ class Dummy
     /**
      * @var bool A dummy boolean
      *
-     * @ODM\Field(type="boolean", nullable=true)
+     * @ODM\Field(type="bool", nullable=true)
      */
     public $dummyBoolean;
 
@@ -97,7 +102,7 @@ class Dummy
      * @var \DateTime A dummy date
      *
      * @ODM\Field(type="date", nullable=true)
-     * @Assert\DateTime
+     * @ApiProperty(iri="http://schema.org/DateTime")
      */
     public $dummyDate;
 
@@ -111,7 +116,7 @@ class Dummy
     /**
      * @var string A dummy price
      *
-     * @ODM\Field(type="int", nullable=true)
+     * @ODM\Field(type="float", nullable=true)
      */
     public $dummyPrice;
 
@@ -214,10 +219,6 @@ class Dummy
     public function getDescription()
     {
         return $this->description;
-    }
-
-    public function hasRole($role)
-    {
     }
 
     public function getFoo()

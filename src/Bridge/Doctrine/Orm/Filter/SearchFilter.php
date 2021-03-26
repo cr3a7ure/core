@@ -13,39 +13,45 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Doctrine\Orm\Filter;
 
+use ApiPlatform\Core\Api\IdentifiersExtractorInterface;
 use ApiPlatform\Core\Api\IriConverterInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Common\Filter\SearchFilterInterface;
 use ApiPlatform\Core\Bridge\Doctrine\Common\Filter\SearchFilterTrait;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryBuilderHelper;
 use ApiPlatform\Core\Bridge\Doctrine\Orm\Util\QueryNameGeneratorInterface;
 use ApiPlatform\Core\Exception\InvalidArgumentException;
-use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\DBAL\Types\Type as DBALType;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 
 /**
  * Filter the collection by given properties.
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
+ *
+ * @final
  */
 class SearchFilter extends AbstractContextAwareFilter implements SearchFilterInterface
 {
     use SearchFilterTrait;
 
-    const DOCTRINE_INTEGER_TYPE = DBALType::INTEGER;
+    public const DOCTRINE_INTEGER_TYPE = DBALType::INTEGER;
 
-    /**
-     * @param RequestStack|null $requestStack No prefix to prevent autowiring of this deprecated property
-     */
-    public function __construct(ManagerRegistry $managerRegistry, $requestStack = null, IriConverterInterface $iriConverter, PropertyAccessorInterface $propertyAccessor = null, LoggerInterface $logger = null, array $properties = null)
+    public function __construct(ManagerRegistry $managerRegistry, ?RequestStack $requestStack, IriConverterInterface $iriConverter, PropertyAccessorInterface $propertyAccessor = null, LoggerInterface $logger = null, array $properties = null, IdentifiersExtractorInterface $identifiersExtractor = null, NameConverterInterface $nameConverter = null)
     {
-        parent::__construct($managerRegistry, $requestStack, $logger, $properties);
+        parent::__construct($managerRegistry, $requestStack, $logger, $properties, $nameConverter);
+
+        if (null === $identifiersExtractor) {
+            @trigger_error('Not injecting ItemIdentifiersExtractor is deprecated since API Platform 2.5 and can lead to unexpected behaviors, it will not be possible anymore in API Platform 3.0.', \E_USER_DEPRECATED);
+        }
 
         $this->iriConverter = $iriConverter;
+        $this->identifiersExtractor = $identifiersExtractor;
         $this->propertyAccessor = $propertyAccessor ?: PropertyAccess::createPropertyAccessor();
     }
 
@@ -75,18 +81,26 @@ class SearchFilter extends AbstractContextAwareFilter implements SearchFilterInt
         $alias = $queryBuilder->getRootAliases()[0];
         $field = $property;
 
-        $associations = [];
-        if ($this->isPropertyNested($property, $resourceClass)) {
-            list($alias, $field, $associations) = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator, $resourceClass);
-        }
-        $metadata = $this->getNestedMetadata($resourceClass, $associations);
-
         $values = $this->normalizeValues((array) $value, $property);
         if (null === $values) {
             return;
         }
 
+        $associations = [];
+        if ($this->isPropertyNested($property, $resourceClass)) {
+            [$alias, $field, $associations] = $this->addJoinsForNestedProperty($property, $alias, $queryBuilder, $queryNameGenerator, $resourceClass);
+        }
+
         $caseSensitive = true;
+        $strategy = $this->properties[$property] ?? self::STRATEGY_EXACT;
+
+        // prefixing the strategy with i makes it case insensitive
+        if (0 === strpos($strategy, 'i')) {
+            $strategy = substr($strategy, 1);
+            $caseSensitive = false;
+        }
+
+        $metadata = $this->getNestedMetadata($resourceClass, $associations);
 
         if ($metadata->hasField($field)) {
             if ('id' === $field) {
@@ -101,34 +115,9 @@ class SearchFilter extends AbstractContextAwareFilter implements SearchFilterInt
                 return;
             }
 
-            $strategy = $this->properties[$property] ?? self::STRATEGY_EXACT;
+            $this->addWhereByStrategy($strategy, $queryBuilder, $queryNameGenerator, $alias, $field, $values, $caseSensitive);
 
-            // prefixing the strategy with i makes it case insensitive
-            if (0 === strpos($strategy, 'i')) {
-                $strategy = substr($strategy, 1);
-                $caseSensitive = false;
-            }
-
-            if (1 === \count($values)) {
-                $this->addWhereByStrategy($strategy, $queryBuilder, $queryNameGenerator, $alias, $field, $values[0], $caseSensitive);
-
-                return;
-            }
-
-            if (self::STRATEGY_EXACT !== $strategy) {
-                $this->logger->notice('Invalid filter ignored', [
-                    'exception' => new InvalidArgumentException(sprintf('"%s" strategy selected for "%s" property, but only "%s" strategy supports multiple values', $strategy, $property, self::STRATEGY_EXACT)),
-                ]);
-
-                return;
-            }
-
-            $wrapCase = $this->createWrapCase($caseSensitive);
-            $valueParameter = $queryNameGenerator->generateParameterName($field);
-
-            $queryBuilder
-                ->andWhere(sprintf($wrapCase('%s.%s').' IN (:%s)', $alias, $field, $valueParameter))
-                ->setParameter($valueParameter, $caseSensitive ? $values : array_map('strtolower', $values));
+            return;
         }
 
         // metadata doesn't have the field, nor an association on the field
@@ -137,8 +126,16 @@ class SearchFilter extends AbstractContextAwareFilter implements SearchFilterInt
         }
 
         $values = array_map([$this, 'getIdFromValue'], $values);
+        $associationFieldIdentifier = 'id';
+        $doctrineTypeField = $this->getDoctrineFieldType($property, $resourceClass);
 
-        if (!$this->hasValidValues($values, $this->getDoctrineFieldType($property, $resourceClass))) {
+        if (null !== $this->identifiersExtractor) {
+            $associationResourceClass = $metadata->getAssociationTargetClass($field);
+            $associationFieldIdentifier = $this->identifiersExtractor->getIdentifiersFromResourceClass($associationResourceClass)[0];
+            $doctrineTypeField = $this->getDoctrineFieldType($associationFieldIdentifier, $associationResourceClass);
+        }
+
+        if (!$this->hasValidValues($values, $doctrineTypeField)) {
             $this->logger->notice('Invalid filter ignored', [
                 'exception' => new InvalidArgumentException(sprintf('Values for field "%s" are not valid according to the doctrine type.', $field)),
             ]);
@@ -146,26 +143,14 @@ class SearchFilter extends AbstractContextAwareFilter implements SearchFilterInt
             return;
         }
 
-        $association = $field;
-        $valueParameter = $queryNameGenerator->generateParameterName($association);
-
-        if ($metadata->isCollectionValuedAssociation($association)) {
-            $associationAlias = QueryBuilderHelper::addJoinOnce($queryBuilder, $queryNameGenerator, $alias, $association);
-            $associationField = 'id';
-        } else {
-            $associationAlias = $alias;
-            $associationField = $field;
+        $associationAlias = $alias;
+        $associationField = $field;
+        if ($metadata->isCollectionValuedAssociation($associationField)) {
+            $associationAlias = QueryBuilderHelper::addJoinOnce($queryBuilder, $queryNameGenerator, $alias, $associationField);
+            $associationField = $associationFieldIdentifier;
         }
 
-        if (1 === \count($values)) {
-            $queryBuilder
-                ->andWhere(sprintf('%s.%s = :%s', $associationAlias, $associationField, $valueParameter))
-                ->setParameter($valueParameter, $values[0]);
-        } else {
-            $queryBuilder
-                ->andWhere(sprintf('%s.%s IN (:%s)', $associationAlias, $associationField, $valueParameter))
-                ->setParameter($valueParameter, $values);
-        }
+        $this->addWhereByStrategy($strategy, $queryBuilder, $queryNameGenerator, $associationAlias, $associationField, $values, $caseSensitive);
     }
 
     /**
@@ -173,41 +158,70 @@ class SearchFilter extends AbstractContextAwareFilter implements SearchFilterInt
      *
      * @throws InvalidArgumentException If strategy does not exist
      */
-    protected function addWhereByStrategy(string $strategy, QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $alias, string $field, $value, bool $caseSensitive)
+    protected function addWhereByStrategy(string $strategy, QueryBuilder $queryBuilder, QueryNameGeneratorInterface $queryNameGenerator, string $alias, string $field, $values, bool $caseSensitive)
     {
-        $wrapCase = $this->createWrapCase($caseSensitive);
-        $valueParameter = $queryNameGenerator->generateParameterName($field);
-
-        switch ($strategy) {
-            case null:
-            case self::STRATEGY_EXACT:
-                $queryBuilder
-                    ->andWhere(sprintf($wrapCase('%s.%s').' = '.$wrapCase(':%s'), $alias, $field, $valueParameter))
-                    ->setParameter($valueParameter, $value);
-                break;
-            case self::STRATEGY_PARTIAL:
-                $queryBuilder
-                    ->andWhere(sprintf($wrapCase('%s.%s').' LIKE '.$wrapCase('CONCAT(\'%%\', :%s, \'%%\')'), $alias, $field, $valueParameter))
-                    ->setParameter($valueParameter, $value);
-                break;
-            case self::STRATEGY_START:
-                $queryBuilder
-                    ->andWhere(sprintf($wrapCase('%s.%s').' LIKE '.$wrapCase('CONCAT(:%s, \'%%\')'), $alias, $field, $valueParameter))
-                    ->setParameter($valueParameter, $value);
-                break;
-            case self::STRATEGY_END:
-                $queryBuilder
-                    ->andWhere(sprintf($wrapCase('%s.%s').' LIKE '.$wrapCase('CONCAT(\'%%\', :%s)'), $alias, $field, $valueParameter))
-                    ->setParameter($valueParameter, $value);
-                break;
-            case self::STRATEGY_WORD_START:
-                $queryBuilder
-                    ->andWhere(sprintf($wrapCase('%1$s.%2$s').' LIKE '.$wrapCase('CONCAT(:%3$s, \'%%\')').' OR '.$wrapCase('%1$s.%2$s').' LIKE '.$wrapCase('CONCAT(\'%% \', :%3$s, \'%%\')'), $alias, $field, $valueParameter))
-                    ->setParameter($valueParameter, $value);
-                break;
-            default:
-                throw new InvalidArgumentException(sprintf('strategy %s does not exist.', $strategy));
+        if (!\is_array($values)) {
+            $values = [$values];
         }
+
+        $wrapCase = $this->createWrapCase($caseSensitive);
+        $valueParameter = ':'.$queryNameGenerator->generateParameterName($field);
+        $aliasedField = sprintf('%s.%s', $alias, $field);
+
+        if (!$strategy || self::STRATEGY_EXACT === $strategy) {
+            if (1 === \count($values)) {
+                $queryBuilder
+                    ->andWhere($queryBuilder->expr()->eq($wrapCase($aliasedField), $wrapCase($valueParameter)))
+                    ->setParameter($valueParameter, $values[0]);
+
+                return;
+            }
+
+            $queryBuilder
+                ->andWhere($queryBuilder->expr()->in($wrapCase($aliasedField), $valueParameter))
+                ->setParameter($valueParameter, $caseSensitive ? $values : array_map('strtolower', $values));
+
+            return;
+        }
+
+        $ors = [];
+        $parameters = [];
+        foreach ($values as $key => $value) {
+            $keyValueParameter = sprintf('%s_%s', $valueParameter, $key);
+            $parameters[$caseSensitive ? $value : strtolower($value)] = $keyValueParameter;
+
+            switch ($strategy) {
+                case self::STRATEGY_PARTIAL:
+                    $ors[] = $queryBuilder->expr()->like(
+                        $wrapCase($aliasedField),
+                        $wrapCase((string) $queryBuilder->expr()->concat("'%'", $keyValueParameter, "'%'"))
+                    );
+                    break;
+                case self::STRATEGY_START:
+                    $ors[] = $queryBuilder->expr()->like(
+                        $wrapCase($aliasedField),
+                        $wrapCase((string) $queryBuilder->expr()->concat($keyValueParameter, "'%'"))
+                    );
+                    break;
+                case self::STRATEGY_END:
+                    $ors[] = $queryBuilder->expr()->like(
+                        $wrapCase($aliasedField),
+                        $wrapCase((string) $queryBuilder->expr()->concat("'%'", $keyValueParameter))
+                    );
+                    break;
+                case self::STRATEGY_WORD_START:
+                    $ors[] = $queryBuilder->expr()->orX(
+                        $queryBuilder->expr()->like($wrapCase($aliasedField), $wrapCase((string) $queryBuilder->expr()->concat($keyValueParameter, "'%'"))),
+                        $queryBuilder->expr()->like($wrapCase($aliasedField), $wrapCase((string) $queryBuilder->expr()->concat("'% '", $keyValueParameter, "'%'")))
+                    );
+                    break;
+                default:
+                    throw new InvalidArgumentException(sprintf('strategy %s does not exist.', $strategy));
+            }
+        }
+
+        $queryBuilder->andWhere($queryBuilder->expr()->orX(...$ors));
+        array_walk($parameters, [$queryBuilder, 'setParameter']);
     }
 
     /**
@@ -219,7 +233,7 @@ class SearchFilter extends AbstractContextAwareFilter implements SearchFilterInt
      */
     protected function createWrapCase(bool $caseSensitive): \Closure
     {
-        return function (string $expr) use ($caseSensitive): string {
+        return static function (string $expr) use ($caseSensitive): string {
             if ($caseSensitive) {
                 return $expr;
             }

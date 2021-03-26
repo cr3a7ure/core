@@ -103,7 +103,7 @@ abstract class AbstractExtractor implements ExtractorInterface
                 throw new \RuntimeException(sprintf('Using "%%%s%%" is not allowed in routing configuration.', $parameter));
             }
 
-            if (array_key_exists($parameter, $this->collectedParameters)) {
+            if (\array_key_exists($parameter, $this->collectedParameters)) {
                 return $this->collectedParameters[$parameter];
             }
 
@@ -119,7 +119,7 @@ abstract class AbstractExtractor implements ExtractorInterface
                 return (string) $resolved;
             }
 
-            throw new\ RuntimeException(sprintf('The container parameter "%s", used in the resource configuration value "%s", must be a string or numeric, but it is of type %s.', $parameter, $value, \gettype($resolved)));
+            throw new \RuntimeException(sprintf('The container parameter "%s", used in the resource configuration value "%s", must be a string or numeric, but it is of type %s.', $parameter, $value, \gettype($resolved)));
         }, $value);
 
         return str_replace('%%', '%', $escapedValue);

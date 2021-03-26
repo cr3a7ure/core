@@ -14,12 +14,14 @@ declare(strict_types=1);
 namespace ApiPlatform\Core\Bridge\Symfony\Bundle\DataPersister;
 
 use ApiPlatform\Core\DataPersister\ChainDataPersister;
+use ApiPlatform\Core\DataPersister\ContextAwareDataPersisterInterface;
 use ApiPlatform\Core\DataPersister\DataPersisterInterface;
+use ApiPlatform\Core\DataPersister\ResumableDataPersisterInterface;
 
 /**
  * @author Anthony GRASSIOT <antograssiot@free.fr>
  */
-final class TraceableChainDataPersister implements DataPersisterInterface
+final class TraceableChainDataPersister implements ContextAwareDataPersisterInterface
 {
     private $persisters = [];
     private $persistersResponse = [];
@@ -41,42 +43,42 @@ final class TraceableChainDataPersister implements DataPersisterInterface
     /**
      * {@inheritdoc}
      */
-    public function supports($data): bool
+    public function supports($data, array $context = []): bool
     {
-        return $this->decorated->supports($data);
+        return $this->decorated->supports($data, $context);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function persist($data)
+    public function persist($data, array $context = [])
     {
-        if ($match = $this->tracePersisters($data)) {
-            return $match->persist($data) ?? $data;
-        }
+        $this->tracePersisters($data, $context);
+
+        return $this->decorated->persist($data, $context);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function remove($data)
+    public function remove($data, array $context = [])
     {
-        if ($match = $this->tracePersisters($data)) {
-            return $match->remove($data);
-        }
+        $this->tracePersisters($data, $context);
+
+        return $this->decorated->remove($data, $context);
     }
 
-    private function tracePersisters($data)
+    private function tracePersisters($data, array $context = [])
     {
-        $match = null;
+        $found = false;
         foreach ($this->persisters as $persister) {
-            $this->persistersResponse[\get_class($persister)] = $match ? null : false;
-            if (!$match && $persister->supports($data)) {
-                $match = $persister;
-                $this->persistersResponse[\get_class($persister)] = true;
+            if (
+                ($this->persistersResponse[\get_class($persister)] = $found ? false : $persister->supports($data, $context))
+                &&
+                !($persister instanceof ResumableDataPersisterInterface && $persister->resumable()) && !$found
+            ) {
+                $found = true;
             }
         }
-
-        return $match;
     }
 }

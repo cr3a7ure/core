@@ -52,7 +52,7 @@ final class PurgeHttpCacheListener
     /**
      * Collects tags from the previous and the current version of the updated entities to purge related documents.
      */
-    public function preUpdate(PreUpdateEventArgs $eventArgs)
+    public function preUpdate(PreUpdateEventArgs $eventArgs): void
     {
         $object = $eventArgs->getObject();
         $this->gatherResourceAndItemTags($object, true);
@@ -73,7 +73,7 @@ final class PurgeHttpCacheListener
     /**
      * Collects tags from inserted and deleted entities, including relations.
      */
-    public function onFlush(OnFlushEventArgs $eventArgs)
+    public function onFlush(OnFlushEventArgs $eventArgs): void
     {
         $em = $eventArgs->getEntityManager();
         $uow = $em->getUnitOfWork();
@@ -97,37 +97,41 @@ final class PurgeHttpCacheListener
     /**
      * Purges tags collected during this request, and clears the tag list.
      */
-    public function postFlush()
+    public function postFlush(): void
     {
-        $this->purger->purge($this->tags);
-        $this->tags = [];
-    }
-
-    private function gatherResourceAndItemTags($entity, bool $purgeItem)
-    {
-        try {
-            $resourceClass = $this->resourceClassResolver->getResourceClass($entity);
-        } catch (InvalidArgumentException $e) {
+        if (empty($this->tags)) {
             return;
         }
 
-        $iri = $this->iriConverter->getIriFromResourceClass($resourceClass);
-        $this->tags[$iri] = $iri;
-        if ($purgeItem) {
-            $iri = $this->iriConverter->getIriFromItem($entity);
+        $this->purger->purge(array_values($this->tags));
+        $this->tags = [];
+    }
+
+    private function gatherResourceAndItemTags($entity, bool $purgeItem): void
+    {
+        try {
+            $resourceClass = $this->resourceClassResolver->getResourceClass($entity);
+            $iri = $this->iriConverter->getIriFromResourceClass($resourceClass);
             $this->tags[$iri] = $iri;
+
+            if ($purgeItem) {
+                $this->addTagForItem($entity);
+            }
+        } catch (InvalidArgumentException $e) {
         }
     }
 
-    private function gatherRelationTags(EntityManagerInterface $em, $entity)
+    private function gatherRelationTags(EntityManagerInterface $em, $entity): void
     {
         $associationMappings = $em->getClassMetadata(ClassUtils::getClass($entity))->getAssociationMappings();
         foreach (array_keys($associationMappings) as $property) {
-            $this->addTagsFor($this->propertyAccessor->getValue($entity, $property));
+            if ($this->propertyAccessor->isReadable($entity, $property)) {
+                $this->addTagsFor($this->propertyAccessor->getValue($entity, $property));
+            }
         }
     }
 
-    private function addTagsFor($value)
+    private function addTagsFor($value): void
     {
         if (!$value) {
             return;
@@ -148,7 +152,7 @@ final class PurgeHttpCacheListener
         }
     }
 
-    private function addTagForItem($value)
+    private function addTagForItem($value): void
     {
         try {
             $iri = $this->iriConverter->getIriFromItem($value);

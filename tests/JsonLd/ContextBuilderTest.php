@@ -23,6 +23,9 @@ use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Metadata\Resource\ResourceNameCollection;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Dto\OutputDto;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyInfo\Type;
 
@@ -31,6 +34,8 @@ use Symfony\Component\PropertyInfo\Type;
  */
 class ContextBuilderTest extends TestCase
 {
+    use ProphecyTrait;
+
     private $entityClass;
     private $resourceNameCollectionFactoryProphecy;
     private $resourceMetadataFactoryProphecy;
@@ -38,7 +43,7 @@ class ContextBuilderTest extends TestCase
     private $propertyMetadataFactoryProphecy;
     private $urlGeneratorProphecy;
 
-    public function setUp()
+    protected function setUp(): void
     {
         $this->entityClass = '\Dummy\DummyEntity';
         $this->resourceNameCollectionFactoryProphecy = $this->prophesize(ResourceNameCollectionFactoryInterface::class);
@@ -60,6 +65,25 @@ class ContextBuilderTest extends TestCase
             '@vocab' => '#',
             'hydra' => 'http://www.w3.org/ns/hydra/core#',
             'dummyPropertyA' => 'DummyEntity/dummyPropertyA',
+        ];
+
+        $this->assertEquals($expected, $contextBuilder->getResourceContext($this->entityClass));
+    }
+
+    public function testIriOnlyResourceContext()
+    {
+        $this->resourceMetadataFactoryProphecy->create($this->entityClass)->willReturn(new ResourceMetadata('DummyEntity', null, null, null, null, ['normalization_context' => ['iri_only' => true]]));
+        $this->propertyNameCollectionFactoryProphecy->create($this->entityClass)->willReturn(new PropertyNameCollection(['dummyPropertyA']));
+        $this->propertyMetadataFactoryProphecy->create($this->entityClass, 'dummyPropertyA')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING), 'Dummy property A', true, true, true, true, false, false));
+
+        $contextBuilder = new ContextBuilder($this->resourceNameCollectionFactoryProphecy->reveal(), $this->resourceMetadataFactoryProphecy->reveal(), $this->propertyNameCollectionFactoryProphecy->reveal(), $this->propertyMetadataFactoryProphecy->reveal(), $this->urlGeneratorProphecy->reveal());
+
+        $expected = [
+            '@vocab' => '#',
+            'hydra' => 'http://www.w3.org/ns/hydra/core#',
+            'hydra:member' => [
+                '@type' => '@id',
+            ],
         ];
 
         $this->assertEquals($expected, $contextBuilder->getResourceContext($this->entityClass));
@@ -125,5 +149,89 @@ class ContextBuilderTest extends TestCase
         ];
 
         $this->assertEquals($expected, $contextBuilder->getResourceContext($this->entityClass));
+    }
+
+    public function testAnonymousResourceContext()
+    {
+        $dummy = new Dummy();
+        $this->propertyNameCollectionFactoryProphecy->create(Dummy::class)->willReturn(new PropertyNameCollection(['dummyPropertyA']));
+        $this->propertyMetadataFactoryProphecy->create(Dummy::class, 'dummyPropertyA')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING), 'Dummy property A', true, true, true, true, false, false, null, null, []));
+
+        $contextBuilder = new ContextBuilder($this->resourceNameCollectionFactoryProphecy->reveal(), $this->resourceMetadataFactoryProphecy->reveal(), $this->propertyNameCollectionFactoryProphecy->reveal(), $this->propertyMetadataFactoryProphecy->reveal(), $this->urlGeneratorProphecy->reveal());
+
+        $iri = '_:'.(\function_exists('spl_object_id') ? spl_object_id($dummy) : spl_object_hash($dummy));
+        $expected = [
+            '@context' => [
+                '@vocab' => '#',
+                'hydra' => 'http://www.w3.org/ns/hydra/core#',
+                'dummyPropertyA' => 'Dummy/dummyPropertyA',
+            ],
+            '@id' => $iri,
+            '@type' => 'Dummy',
+        ];
+
+        $this->assertEquals($expected, $contextBuilder->getAnonymousResourceContext($dummy));
+    }
+
+    public function testAnonymousResourceContextWithIri()
+    {
+        $output = new OutputDto();
+        $this->propertyNameCollectionFactoryProphecy->create(OutputDto::class)->willReturn(new PropertyNameCollection(['dummyPropertyA']));
+        $this->propertyMetadataFactoryProphecy->create(OutputDto::class, 'dummyPropertyA')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING), 'Dummy property A', true, true, true, true, false, false, null, null, []));
+
+        $contextBuilder = new ContextBuilder($this->resourceNameCollectionFactoryProphecy->reveal(), $this->resourceMetadataFactoryProphecy->reveal(), $this->propertyNameCollectionFactoryProphecy->reveal(), $this->propertyMetadataFactoryProphecy->reveal(), $this->urlGeneratorProphecy->reveal());
+
+        $expected = [
+            '@context' => [
+                '@vocab' => '#',
+                'hydra' => 'http://www.w3.org/ns/hydra/core#',
+                'dummyPropertyA' => 'OutputDto/dummyPropertyA',
+            ],
+            '@id' => '/dummies',
+            '@type' => 'OutputDto',
+        ];
+
+        $this->assertEquals($expected, $contextBuilder->getAnonymousResourceContext($output, ['iri' => '/dummies', 'name' => 'Dummy']));
+    }
+
+    public function testAnonymousResourceContextWithApiResource()
+    {
+        $output = new OutputDto();
+        $this->propertyNameCollectionFactoryProphecy->create(OutputDto::class)->willReturn(new PropertyNameCollection(['dummyPropertyA']));
+        $this->propertyMetadataFactoryProphecy->create(OutputDto::class, 'dummyPropertyA')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING), 'Dummy property A', true, true, true, true, false, false, null, null, []));
+
+        $this->resourceMetadataFactoryProphecy->create(Dummy::class)->willReturn(new ResourceMetadata('Dummy'));
+
+        $contextBuilder = new ContextBuilder($this->resourceNameCollectionFactoryProphecy->reveal(), $this->resourceMetadataFactoryProphecy->reveal(), $this->propertyNameCollectionFactoryProphecy->reveal(), $this->propertyMetadataFactoryProphecy->reveal(), $this->urlGeneratorProphecy->reveal());
+
+        $expected = [
+            '@context' => [
+                '@vocab' => '#',
+                'hydra' => 'http://www.w3.org/ns/hydra/core#',
+                'dummyPropertyA' => 'OutputDto/dummyPropertyA',
+            ],
+            '@id' => '/dummies',
+            '@type' => 'Dummy',
+        ];
+
+        $this->assertEquals($expected, $contextBuilder->getAnonymousResourceContext($output, ['iri' => '/dummies', 'name' => 'Dummy', 'api_resource' => new Dummy()]));
+    }
+
+    public function testAnonymousResourceContextWithApiResourceHavingContext()
+    {
+        $output = new OutputDto();
+        $this->propertyNameCollectionFactoryProphecy->create(OutputDto::class)->willReturn(new PropertyNameCollection(['dummyPropertyA']));
+        $this->propertyMetadataFactoryProphecy->create(OutputDto::class, 'dummyPropertyA')->willReturn(new PropertyMetadata(new Type(Type::BUILTIN_TYPE_STRING), 'Dummy property A', true, true, true, true, false, false, null, null, []));
+
+        $this->resourceMetadataFactoryProphecy->create(Dummy::class)->willReturn(new ResourceMetadata('Dummy'));
+
+        $contextBuilder = new ContextBuilder($this->resourceNameCollectionFactoryProphecy->reveal(), $this->resourceMetadataFactoryProphecy->reveal(), $this->propertyNameCollectionFactoryProphecy->reveal(), $this->propertyMetadataFactoryProphecy->reveal(), $this->urlGeneratorProphecy->reveal());
+
+        $expected = [
+            '@id' => '/dummies',
+            '@type' => 'Dummy',
+        ];
+
+        $this->assertEquals($expected, $contextBuilder->getAnonymousResourceContext($output, ['iri' => '/dummies', 'name' => 'Dummy', 'api_resource' => new Dummy(), 'has_context' => true]));
     }
 }

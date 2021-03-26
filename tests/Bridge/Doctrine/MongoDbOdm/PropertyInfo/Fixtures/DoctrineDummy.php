@@ -92,6 +92,11 @@ class DoctrineDummy
     private $date;
 
     /**
+     * @Field(type="date_immutable")
+     */
+    private $dateImmutable;
+
+    /**
      * @Field(type="float")
      */
     private $float;
@@ -100,11 +105,6 @@ class DoctrineDummy
      * @Field(type="bool")
      */
     private $bool;
-
-    /**
-     * @Field(type="boolean")
-     */
-    private $boolean;
 
     /**
      * @Field(type="custom_foo")
@@ -117,11 +117,6 @@ class DoctrineDummy
     private $int;
 
     /**
-     * @Field(type="integer")
-     */
-    private $integer;
-
-    /**
      * @Field(type="string")
      */
     private $string;
@@ -130,11 +125,6 @@ class DoctrineDummy
      * @Field(type="key")
      */
     private $key;
-
-    /**
-     * @Field(type="file")
-     */
-    private $file;
 
     /**
      * @Field(type="hash")

@@ -31,7 +31,7 @@ final class AnnotationResourceFilterMetadataFactory implements ResourceMetadataF
     private $reader;
     private $decorated;
 
-    public function __construct(Reader $reader, ResourceMetadataFactoryInterface $decorated = null)
+    public function __construct(?Reader $reader = null, ResourceMetadataFactoryInterface $decorated = null)
     {
         $this->reader = $reader;
         $this->decorated = $decorated;
@@ -87,7 +87,7 @@ final class AnnotationResourceFilterMetadataFactory implements ResourceMetadataF
      *
      * @throws ResourceClassNotFoundException
      */
-    private function handleNotFound(ResourceMetadata $parentPropertyMetadata = null, string $resourceClass): ResourceMetadata
+    private function handleNotFound(?ResourceMetadata $parentPropertyMetadata, string $resourceClass): ResourceMetadata
     {
         if (null !== $parentPropertyMetadata) {
             return $parentPropertyMetadata;

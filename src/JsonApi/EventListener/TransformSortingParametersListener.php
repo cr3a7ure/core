@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\JsonApi\EventListener;
 
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 /**
  * @see http://jsonapi.org/format/#fetching-sorting
@@ -31,14 +31,15 @@ final class TransformSortingParametersListener
         $this->orderParameterName = $orderParameterName;
     }
 
-    public function onKernelRequest(GetResponseEvent $event)
+    public function onKernelRequest(RequestEvent $event): void
     {
         $request = $event->getRequest();
+        $orderParameter = $request->query->all()['sort'] ?? null;
 
         if (
-            'jsonapi' !== $request->getRequestFormat() ||
-            null === ($orderParameter = $request->query->get('sort')) ||
-            \is_array($orderParameter)
+            null === $orderParameter ||
+            \is_array($orderParameter) ||
+            'jsonapi' !== $request->getRequestFormat()
         ) {
             return;
         }

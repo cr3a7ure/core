@@ -22,13 +22,17 @@ use ApiPlatform\Core\Exception\ResourceClassNotSupportedException;
  */
 final class ChainCollectionDataProvider implements ContextAwareCollectionDataProviderInterface
 {
-    /** @internal */
+    /**
+     * @var iterable<CollectionDataProviderInterface>
+     *
+     * @internal
+     */
     public $dataProviders;
 
     /**
-     * @param ContextAwareCollectionDataProviderInterface[]|CollectionDataProviderInterface[] $dataProviders
+     * @param CollectionDataProviderInterface[] $dataProviders
      */
-    public function __construct(/* iterable */ $dataProviders)
+    public function __construct(iterable $dataProviders)
     {
         $this->dataProviders = $dataProviders;
     }
@@ -47,7 +51,7 @@ final class ChainCollectionDataProvider implements ContextAwareCollectionDataPro
 
                 return $dataProvider->getCollection($resourceClass, $operationName, $context);
             } catch (ResourceClassNotSupportedException $e) {
-                @trigger_error(sprintf('Throwing a "%s" in a data provider is deprecated in favor of implementing "%s"', ResourceClassNotSupportedException::class, RestrictedDataProviderInterface::class), E_USER_DEPRECATED);
+                @trigger_error(sprintf('Throwing a "%s" in a data provider is deprecated in favor of implementing "%s"', ResourceClassNotSupportedException::class, RestrictedDataProviderInterface::class), \E_USER_DEPRECATED);
                 continue;
             }
         }

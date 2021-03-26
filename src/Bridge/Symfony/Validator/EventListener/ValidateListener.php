@@ -18,7 +18,7 @@ use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Util\RequestAttributesExtractor;
 use ApiPlatform\Core\Validator\EventListener\ValidateListener as MainValidateListener;
 use Psr\Container\ContainerInterface;
-use Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent;
+use Symfony\Component\HttpKernel\Event\ViewEvent;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
@@ -36,7 +36,7 @@ final class ValidateListener
 
     public function __construct(ValidatorInterface $validator, ResourceMetadataFactoryInterface $resourceMetadataFactory, ContainerInterface $container = null)
     {
-        @trigger_error(sprintf('Using "%s" is deprecated since API Platform 2.2 and will not be possible anymore in API Platform 3. Use "%s" instead.', __CLASS__, MainValidateListener::class), E_USER_DEPRECATED);
+        @trigger_error(sprintf('Using "%s" is deprecated since API Platform 2.2 and will not be possible anymore in API Platform 3. Use "%s" instead.', __CLASS__, MainValidateListener::class), \E_USER_DEPRECATED);
 
         $this->validator = $validator;
         $this->resourceMetadataFactory = $resourceMetadataFactory;
@@ -48,11 +48,11 @@ final class ValidateListener
      *
      * @throws ValidationException
      */
-    public function onKernelView(GetResponseForControllerResultEvent $event)
+    public function onKernelView(ViewEvent $event): void
     {
         $request = $event->getRequest();
         if (
-            $request->isMethodSafe(false)
+            $request->isMethodSafe()
             || $request->isMethod('DELETE')
             || !($attributes = RequestAttributesExtractor::extractAttributes($request))
             || !$attributes['receive']

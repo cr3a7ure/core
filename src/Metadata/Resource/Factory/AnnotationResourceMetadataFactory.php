@@ -27,11 +27,13 @@ final class AnnotationResourceMetadataFactory implements ResourceMetadataFactory
 {
     private $reader;
     private $decorated;
+    private $defaults;
 
-    public function __construct(Reader $reader, ResourceMetadataFactoryInterface $decorated = null)
+    public function __construct(Reader $reader = null, ResourceMetadataFactoryInterface $decorated = null, array $defaults = [])
     {
         $this->reader = $reader;
         $this->decorated = $decorated;
+        $this->defaults = $defaults + ['attributes' => []];
     }
 
     /**
@@ -54,8 +56,16 @@ final class AnnotationResourceMetadataFactory implements ResourceMetadataFactory
             return $this->handleNotFound($parentResourceMetadata, $resourceClass);
         }
 
+        if (\PHP_VERSION_ID >= 80000 && $attributes = $reflectionClass->getAttributes(ApiResource::class)) {
+            return $this->createMetadata($attributes[0]->newInstance(), $parentResourceMetadata);
+        }
+
+        if (null === $this->reader) {
+            $this->handleNotFound($parentResourceMetadata, $resourceClass);
+        }
+
         $resourceAnnotation = $this->reader->getClassAnnotation($reflectionClass, ApiResource::class);
-        if (null === $resourceAnnotation) {
+        if (!$resourceAnnotation instanceof ApiResource) {
             return $this->handleNotFound($parentResourceMetadata, $resourceClass);
         }
 
@@ -67,7 +77,7 @@ final class AnnotationResourceMetadataFactory implements ResourceMetadataFactory
      *
      * @throws ResourceClassNotFoundException
      */
-    private function handleNotFound(ResourceMetadata $parentPropertyMetadata = null, string $resourceClass): ResourceMetadata
+    private function handleNotFound(?ResourceMetadata $parentPropertyMetadata, string $resourceClass): ResourceMetadata
     {
         if (null !== $parentPropertyMetadata) {
             return $parentPropertyMetadata;
@@ -78,24 +88,39 @@ final class AnnotationResourceMetadataFactory implements ResourceMetadataFactory
 
     private function createMetadata(ApiResource $annotation, ResourceMetadata $parentResourceMetadata = null): ResourceMetadata
     {
+        $attributes = null;
+        if (null !== $annotation->attributes || [] !== $this->defaults['attributes']) {
+            $attributes = (array) $annotation->attributes;
+            foreach ($this->defaults['attributes'] as $key => $value) {
+                if (!isset($attributes[$key])) {
+                    $attributes[$key] = $value;
+                }
+            }
+        }
+
         if (!$parentResourceMetadata) {
             return new ResourceMetadata(
                 $annotation->shortName,
-                $annotation->description,
-                $annotation->iri,
+                $annotation->description ?? $this->defaults['description'] ?? null,
+                $annotation->iri ?? $this->defaults['iri'] ?? null,
                 $annotation->type,
-                $annotation->itemOperations,
-                $annotation->collectionOperations,
-                $annotation->attributes,
+                $annotation->itemOperations ?? $this->defaults['item_operations'] ?? null,
+                $annotation->collectionOperations ?? $this->defaults['collection_operations'] ?? null,
                 $annotation->subresourceOperations,
-                $annotation->graphql
+                $annotation->attributes,
+                #new change
+                #$attributes,
+                $annotation->graphql ?? $this->defaults['graphql'] ?? null
             );
         }
 
         $resourceMetadata = $parentResourceMetadata;
 
-        foreach (['shortName', 'description', 'iri', 'type', 'itemOperations', 'collectionOperations', 'attributes'] as $property) {
-            $resourceMetadata = $this->createWith($resourceMetadata, $property, $annotation->$property);
+        #old change
+        #foreach (['shortName', 'description', 'iri', 'type', 'itemOperations', 'collectionOperations', 'attributes'] as $property) {
+        #    $resourceMetadata = $this->createWith($resourceMetadata, $property, $annotation->$property);
+        foreach (['shortName', 'description', 'iri', 'type', 'itemOperations', 'collectionOperations', 'subresourceOperations', 'graphql', 'attributes'] as $property) {
+            $resourceMetadata = $this->createWith($resourceMetadata, $property, $annotation->{$property});
         }
 
         return $resourceMetadata;
@@ -109,12 +134,16 @@ final class AnnotationResourceMetadataFactory implements ResourceMetadataFactory
         $upperProperty = ucfirst($property);
         $getter = "get$upperProperty";
 
-        if (null !== $resourceMetadata->$getter()) {
+        if (null !== $resourceMetadata->{$getter}()) {
+            return $resourceMetadata;
+        }
+
+        if (null === $value) {
             return $resourceMetadata;
         }
 
         $wither = "with$upperProperty";
 
-        return $resourceMetadata->$wither($value);
+        return $resourceMetadata->{$wither}($value);
     }
 }

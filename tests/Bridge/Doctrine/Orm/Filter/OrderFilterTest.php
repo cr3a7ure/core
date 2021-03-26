@@ -17,7 +17,9 @@ use ApiPlatform\Core\Bridge\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Core\Test\DoctrineOrmFilterTestCase;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\Common\Filter\OrderFilterTestTrait;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
-use Doctrine\Common\Persistence\ManagerRegistry;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\EmbeddedDummy;
+use ApiPlatform\Core\Tests\Fixtures\TestBundle\Serializer\NameConverter\CustomConverter;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
@@ -39,63 +41,258 @@ class OrderFilterTest extends DoctrineOrmFilterTestCase
                 'property' => 'id',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[name]' => [
                 'property' => 'name',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[alias]' => [
                 'property' => 'alias',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[description]' => [
                 'property' => 'description',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[dummy]' => [
                 'property' => 'dummy',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[dummyDate]' => [
                 'property' => 'dummyDate',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[dummyFloat]' => [
                 'property' => 'dummyFloat',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[dummyPrice]' => [
                 'property' => 'dummyPrice',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[jsonData]' => [
                 'property' => 'jsonData',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[arrayData]' => [
                 'property' => 'arrayData',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
-            'order[nameConverted]' => [
-                'property' => 'nameConverted',
+            'order[name_converted]' => [
+                'property' => 'name_converted',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
             'order[dummyBoolean]' => [
                 'property' => 'dummyBoolean',
                 'type' => 'string',
                 'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
             ],
         ], $filter->getDescription($this->resourceClass));
+
+        $this->assertEquals([
+            'order[id]' => [
+                'property' => 'id',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+            'order[name]' => [
+                'property' => 'name',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+            'order[dummyDate]' => [
+                'property' => 'dummyDate',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+            'order[embeddedDummy.dummyName]' => [
+                'property' => 'embeddedDummy.dummyName',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+            'order[embeddedDummy.dummyBoolean]' => [
+                'property' => 'embeddedDummy.dummyBoolean',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+            'order[embeddedDummy.dummyDate]' => [
+                'property' => 'embeddedDummy.dummyDate',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+            'order[embeddedDummy.dummyFloat]' => [
+                'property' => 'embeddedDummy.dummyFloat',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+            'order[embeddedDummy.dummyPrice]' => [
+                'property' => 'embeddedDummy.dummyPrice',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+            'order[embeddedDummy.symfony]' => [
+                'property' => 'embeddedDummy.symfony',
+                'type' => 'string',
+                'required' => false,
+                'schema' => [
+                    'type' => 'string',
+                    'enum' => [
+                        'asc',
+                        'desc',
+                    ],
+                ],
+            ],
+        ], $filter->getDescription(EmbeddedDummy::class));
     }
 
     public function provideApplyTestData(): array
@@ -180,6 +377,26 @@ class OrderFilterTest extends DoctrineOrmFilterTestCase
                     null,
                     $orderFilterFactory,
                 ],
+                'nulls_always_first (asc)' => [
+                    sprintf('SELECT o, CASE WHEN o.dummyDate IS NULL THEN 0 ELSE 1 END AS HIDDEN _o_dummyDate_null_rank FROM %s o ORDER BY _o_dummyDate_null_rank ASC, o.dummyDate ASC, o.name DESC', Dummy::class),
+                    null,
+                    $orderFilterFactory,
+                ],
+                'nulls_always_first (desc)' => [
+                    sprintf('SELECT o, CASE WHEN o.dummyDate IS NULL THEN 0 ELSE 1 END AS HIDDEN _o_dummyDate_null_rank FROM %s o ORDER BY _o_dummyDate_null_rank ASC, o.dummyDate DESC, o.name DESC', Dummy::class),
+                    null,
+                    $orderFilterFactory,
+                ],
+                'nulls_always_last (asc)' => [
+                    sprintf('SELECT o, CASE WHEN o.dummyDate IS NULL THEN 0 ELSE 1 END AS HIDDEN _o_dummyDate_null_rank FROM %s o ORDER BY _o_dummyDate_null_rank DESC, o.dummyDate ASC, o.name DESC', Dummy::class),
+                    null,
+                    $orderFilterFactory,
+                ],
+                'nulls_always_last (desc)' => [
+                    sprintf('SELECT o, CASE WHEN o.dummyDate IS NULL THEN 0 ELSE 1 END AS HIDDEN _o_dummyDate_null_rank FROM %s o ORDER BY _o_dummyDate_null_rank DESC, o.dummyDate DESC, o.name DESC', Dummy::class),
+                    null,
+                    $orderFilterFactory,
+                ],
                 'not having order should not throw a deprecation (select unchanged)' => [
                     sprintf('SELECT o FROM %s o', Dummy::class),
                     null,
@@ -190,12 +407,24 @@ class OrderFilterTest extends DoctrineOrmFilterTestCase
                     null,
                     $orderFilterFactory,
                 ],
+                'embedded' => [
+                    sprintf('SELECT o FROM %s o ORDER BY o.embeddedDummy.dummyName ASC', EmbeddedDummy::class),
+                    null,
+                    $orderFilterFactory,
+                    EmbeddedDummy::class,
+                ],
+                'embedded with nulls_comparison' => [
+                    sprintf('SELECT o, CASE WHEN o.embeddedDummy.dummyName IS NULL THEN 0 ELSE 1 END AS HIDDEN _o_embeddedDummy_dummyName_null_rank FROM %s o ORDER BY _o_embeddedDummy_dummyName_null_rank DESC, o.embeddedDummy.dummyName ASC', EmbeddedDummy::class),
+                    null,
+                    $orderFilterFactory,
+                    EmbeddedDummy::class,
+                ],
             ]
         );
     }
 
     protected function buildFilter(?array $properties = null)
     {
-        return new $this->filterClass($this->managerRegistry, null, 'order', null, $properties);
+        return new $this->filterClass($this->managerRegistry, null, 'order', null, $properties, new CustomConverter());
     }
 }

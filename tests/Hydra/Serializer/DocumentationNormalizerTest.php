@@ -28,6 +28,7 @@ use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Metadata\Resource\ResourceNameCollection;
 use ApiPlatform\Core\Operation\Factory\SubresourceOperationFactoryInterface;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Serializer\NameConverter\CustomConverter;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Symfony\Component\PropertyInfo\Type;
@@ -37,12 +38,30 @@ use Symfony\Component\PropertyInfo\Type;
  */
 class DocumentationNormalizerTest extends TestCase
 {
-    public function testNormalize()
+    use ProphecyTrait;
+
+    public function testNormalize(): void
+    {
+        $this->doTestNormalize();
+    }
+
+    public function testLegacyNormalize(): void
+    {
+        $operationMethodResolverProphecy = $this->prophesize(OperationMethodResolverInterface::class);
+        $operationMethodResolverProphecy->getItemOperationMethod('dummy', 'get')->shouldBeCalled()->willReturn('GET');
+        $operationMethodResolverProphecy->getItemOperationMethod('dummy', 'put')->shouldBeCalled()->willReturn('PUT');
+        $operationMethodResolverProphecy->getCollectionOperationMethod('dummy', 'get')->shouldBeCalled()->willReturn('GET');
+        $operationMethodResolverProphecy->getCollectionOperationMethod('dummy', 'post')->shouldBeCalled()->willReturn('POST');
+
+        $this->doTestNormalize($operationMethodResolverProphecy->reveal());
+    }
+
+    private function doTestNormalize(OperationMethodResolverInterface $operationMethodResolver = null): void
     {
         $title = 'Test Api';
         $desc = 'test ApiGerard';
         $version = '0.0.0';
-        $documentation = new Documentation(new ResourceNameCollection(['dummy' => 'dummy']), $title, $desc, $version, []);
+        $documentation = new Documentation(new ResourceNameCollection(['dummy' => 'dummy']), $title, $desc, $version);
 
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create('dummy', [])->shouldBeCalled()->willReturn(new PropertyNameCollection(['name', 'description', 'nameConverted', 'relatedDummy']));
@@ -63,17 +82,11 @@ class DocumentationNormalizerTest extends TestCase
         $resourceClassResolverProphecy = $this->prophesize(ResourceClassResolverInterface::class);
         $resourceClassResolverProphecy->isResourceClass(Argument::type('string'))->willReturn(true);
 
-        $operationMethodResolverProphecy = $this->prophesize(OperationMethodResolverInterface::class);
-        $operationMethodResolverProphecy->getItemOperationMethod('dummy', 'get')->shouldBeCalled()->willReturn('GET');
-        $operationMethodResolverProphecy->getItemOperationMethod('dummy', 'put')->shouldBeCalled()->willReturn('PUT');
-        $operationMethodResolverProphecy->getCollectionOperationMethod('dummy', 'get')->shouldBeCalled()->willReturn('GET');
-        $operationMethodResolverProphecy->getCollectionOperationMethod('dummy', 'post')->shouldBeCalled()->willReturn('POST');
-
         $urlGenerator = $this->prophesize(UrlGeneratorInterface::class);
-        $urlGenerator->generate('api_entrypoint')->willReturn('/')->shouldBeCalled(1);
-        $urlGenerator->generate('api_doc', ['_format' => 'jsonld'])->willReturn('/doc')->shouldBeCalled(1);
+        $urlGenerator->generate('api_entrypoint')->willReturn('/')->shouldBeCalledTimes(1);
+        $urlGenerator->generate('api_doc', ['_format' => 'jsonld'])->willReturn('/doc')->shouldBeCalledTimes(1);
 
-        $urlGenerator->generate('api_doc', ['_format' => 'jsonld'], 0)->willReturn('/doc')->shouldBeCalled(1);
+        $urlGenerator->generate('api_doc', ['_format' => 'jsonld'], 0)->willReturn('/doc')->shouldBeCalledTimes(1);
 
         $subresourceOperationFactoryProphecy = $this->prophesize(SubresourceOperationFactoryInterface::class);
         $subresourceOperationFactoryProphecy->create('dummy')->shouldBeCalled()->willReturn([
@@ -83,7 +96,7 @@ class DocumentationNormalizerTest extends TestCase
                 'resource_class' => 'relatedDummy',
                 'shortNames' => ['relatedDummy'],
                 'identifiers' => [
-                    ['id', 'dummy', true],
+                    'id' => ['dummy', 'id', true],
                 ],
                 'route_name' => 'api_dummies_subresource_get_related_dummy',
                 'path' => '/dummies/{id}/related_dummy.{_format}',
@@ -95,7 +108,7 @@ class DocumentationNormalizerTest extends TestCase
             $propertyNameCollectionFactoryProphecy->reveal(),
             $propertyMetadataFactoryProphecy->reveal(),
             $resourceClassResolverProphecy->reveal(),
-            $operationMethodResolverProphecy->reveal(),
+            $operationMethodResolver,
             $urlGenerator->reveal(),
             $subresourceOperationFactoryProphecy->reveal(),
             new CustomConverter()
@@ -155,7 +168,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'name',
                             'hydra:required' => false,
                             'hydra:readable' => true,
-                            'hydra:writable' => true,
+                            'hydra:writeable' => true,
                             'hydra:description' => 'name',
                         ],
                         [
@@ -170,7 +183,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'description',
                             'hydra:required' => false,
                             'hydra:readable' => true,
-                            'hydra:writable' => true,
+                            'hydra:writeable' => true,
                             'hydra:description' => 'description',
                         ],
                         [
@@ -185,7 +198,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'name_converted',
                             'hydra:required' => false,
                             'hydra:readable' => true,
-                            'hydra:writable' => true,
+                            'hydra:writeable' => true,
                             'hydra:description' => 'name converted',
                         ],
                         [
@@ -200,7 +213,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'relatedDummy',
                             'hydra:required' => false,
                             'hydra:readable' => true,
-                            'hydra:writable' => true,
+                            'hydra:writeable' => true,
                             'hydra:description' => 'This is a name.',
                         ],
                     ],
@@ -278,7 +291,7 @@ class DocumentationNormalizerTest extends TestCase
                             ],
                             'hydra:title' => 'The collection of dummy resources',
                             'hydra:readable' => true,
-                            'hydra:writable' => false,
+                            'hydra:writeable' => false,
                         ],
                     ],
                     'hydra:supportedOperation' => [
@@ -305,7 +318,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'propertyPath',
                             'hydra:description' => 'The property path of the violation',
                             'hydra:readable' => true,
-                            'hydra:writable' => false,
+                            'hydra:writeable' => false,
                         ],
                         [
                             '@type' => 'hydra:SupportedProperty',
@@ -319,7 +332,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'message',
                             'hydra:description' => 'The message associated with the violation',
                             'hydra:readable' => true,
-                            'hydra:writable' => false,
+                            'hydra:writeable' => false,
                         ],
                     ],
                 ],
@@ -341,7 +354,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'violations',
                             'hydra:description' => 'The violations',
                             'hydra:readable' => true,
-                            'hydra:writable' => false,
+                            'hydra:writeable' => false,
                         ],
                     ],
                 ],
@@ -359,13 +372,28 @@ class DocumentationNormalizerTest extends TestCase
         $title = 'Test Api';
         $desc = 'test ApiGerard';
         $version = '0.0.0';
-        $documentation = new Documentation(new ResourceNameCollection(['dummy' => 'dummy']), $title, $desc, $version, []);
+        $documentation = new Documentation(new ResourceNameCollection(['dummy' => 'dummy']), $title, $desc, $version);
 
         $propertyNameCollectionFactoryProphecy = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $propertyNameCollectionFactoryProphecy->create('inputClass', [])->shouldBeCalled()->willReturn(new PropertyNameCollection(['a', 'b']));
         $propertyNameCollectionFactoryProphecy->create('outputClass', [])->shouldBeCalled()->willReturn(new PropertyNameCollection(['c', 'd']));
 
-        $dummyMetadata = new ResourceMetadata('dummy', 'dummy', '#dummy', ['get' => [], 'put' => ['input_class' => false]], ['get' => [], 'post' => ['output_class' => false]], ['input_class' => 'inputClass', 'output_class' => 'outputClass']);
+        $dummyMetadata = new ResourceMetadata(
+            'dummy',
+            'dummy',
+            '#dummy',
+            [
+                'get' => ['method' => 'GET'],
+                'put' => ['method' => 'PUT', 'input' => ['class' => null]],
+            ],
+            [
+                'get' => ['method' => 'GET'],
+                'post' => ['method' => 'POST', 'output' => ['class' => null]],
+            ],
+            [
+                'input' => ['class' => 'inputClass'],
+                'output' => ['class' => 'outputClass'],
+            ]);
         $resourceMetadataFactoryProphecy = $this->prophesize(ResourceMetadataFactoryInterface::class);
         $resourceMetadataFactoryProphecy->create('dummy')->shouldBeCalled()->willReturn($dummyMetadata);
 
@@ -378,23 +406,17 @@ class DocumentationNormalizerTest extends TestCase
         $resourceClassResolverProphecy = $this->prophesize(ResourceClassResolverInterface::class);
         $resourceClassResolverProphecy->isResourceClass(Argument::type('string'))->willReturn(true);
 
-        $operationMethodResolverProphecy = $this->prophesize(OperationMethodResolverInterface::class);
-        $operationMethodResolverProphecy->getItemOperationMethod('dummy', 'get')->shouldBeCalled()->willReturn('GET');
-        $operationMethodResolverProphecy->getItemOperationMethod('dummy', 'put')->shouldBeCalled()->willReturn('PUT');
-        $operationMethodResolverProphecy->getCollectionOperationMethod('dummy', 'get')->shouldBeCalled()->willReturn('GET');
-        $operationMethodResolverProphecy->getCollectionOperationMethod('dummy', 'post')->shouldBeCalled()->willReturn('POST');
-
         $urlGenerator = $this->prophesize(UrlGeneratorInterface::class);
-        $urlGenerator->generate('api_entrypoint')->willReturn('/')->shouldBeCalled(1);
-        $urlGenerator->generate('api_doc', ['_format' => 'jsonld'])->willReturn('/doc')->shouldBeCalled(1);
-        $urlGenerator->generate('api_doc', ['_format' => 'jsonld'], 0)->willReturn('/doc')->shouldBeCalled(1);
+        $urlGenerator->generate('api_entrypoint')->willReturn('/')->shouldBeCalledTimes(1);
+        $urlGenerator->generate('api_doc', ['_format' => 'jsonld'])->willReturn('/doc')->shouldBeCalledTimes(1);
+        $urlGenerator->generate('api_doc', ['_format' => 'jsonld'], 0)->willReturn('/doc')->shouldBeCalledTimes(1);
 
         $documentationNormalizer = new DocumentationNormalizer(
             $resourceMetadataFactoryProphecy->reveal(),
             $propertyNameCollectionFactoryProphecy->reveal(),
             $propertyMetadataFactoryProphecy->reveal(),
             $resourceClassResolverProphecy->reveal(),
-            $operationMethodResolverProphecy->reveal(),
+            null,
             $urlGenerator->reveal()
         );
 
@@ -452,7 +474,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'a',
                             'hydra:required' => false,
                             'hydra:readable' => true,
-                            'hydra:writable' => true,
+                            'hydra:writeable' => true,
                             'hydra:description' => 'a',
                         ],
                         [
@@ -467,7 +489,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'b',
                             'hydra:required' => false,
                             'hydra:readable' => true,
-                            'hydra:writable' => true,
+                            'hydra:writeable' => true,
                             'hydra:description' => 'b',
                         ],
                         [
@@ -482,7 +504,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'c',
                             'hydra:required' => false,
                             'hydra:readable' => true,
-                            'hydra:writable' => true,
+                            'hydra:writeable' => true,
                             'hydra:description' => 'c',
                         ],
                         [
@@ -497,7 +519,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'd',
                             'hydra:required' => false,
                             'hydra:readable' => true,
-                            'hydra:writable' => true,
+                            'hydra:writeable' => true,
                             'hydra:description' => 'd',
                         ],
                     ],
@@ -579,7 +601,7 @@ class DocumentationNormalizerTest extends TestCase
                             ],
                             'hydra:title' => 'The collection of dummy resources',
                             'hydra:readable' => true,
-                            'hydra:writable' => false,
+                            'hydra:writeable' => false,
                         ],
                     ],
                     'hydra:supportedOperation' => [
@@ -606,7 +628,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'propertyPath',
                             'hydra:description' => 'The property path of the violation',
                             'hydra:readable' => true,
-                            'hydra:writable' => false,
+                            'hydra:writeable' => false,
                         ],
                         [
                             '@type' => 'hydra:SupportedProperty',
@@ -620,7 +642,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'message',
                             'hydra:description' => 'The message associated with the violation',
                             'hydra:readable' => true,
-                            'hydra:writable' => false,
+                            'hydra:writeable' => false,
                         ],
                     ],
                 ],
@@ -642,7 +664,7 @@ class DocumentationNormalizerTest extends TestCase
                             'hydra:title' => 'violations',
                             'hydra:description' => 'The violations',
                             'hydra:readable' => true,
-                            'hydra:writable' => false,
+                            'hydra:writeable' => false,
                         ],
                     ],
                 ],

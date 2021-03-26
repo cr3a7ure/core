@@ -20,6 +20,8 @@ use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
  * {@inheritdoc}
  *
  * @author Anthony GRASSIOT <antograssiot@free.fr>
+ *
+ * @deprecated since API Platform 2.5, use the "formats" attribute instead
  */
 final class FormatsProvider implements FormatsProviderInterface, OperationAwareFormatsProviderInterface
 {
@@ -28,6 +30,8 @@ final class FormatsProvider implements FormatsProviderInterface, OperationAwareF
 
     public function __construct(ResourceMetadataFactoryInterface $resourceMetadataFactory, array $configuredFormats)
     {
+        @trigger_error(sprintf('The "%s" class is deprecated since API Platform 2.5, use the "formats" attribute instead.', __CLASS__), \E_USER_DEPRECATED);
+
         $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->configuredFormats = $configuredFormats;
     }
@@ -92,7 +96,7 @@ final class FormatsProvider implements FormatsProviderInterface, OperationAwareF
             if (!\is_string($value)) {
                 throw new InvalidArgumentException(sprintf("The 'formats' attributes value must be a string when trying to include an already configured format, %s given.", \gettype($value)));
             }
-            if (array_key_exists($value, $this->configuredFormats)) {
+            if (\array_key_exists($value, $this->configuredFormats)) {
                 $resourceFormats[$value] = $this->configuredFormats[$value];
                 continue;
             }

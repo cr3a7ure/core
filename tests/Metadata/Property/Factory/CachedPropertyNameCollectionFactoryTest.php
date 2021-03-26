@@ -17,6 +17,7 @@ use ApiPlatform\Core\Metadata\Property\Factory\CachedPropertyNameCollectionFacto
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyNameCollection;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheException;
 use Psr\Cache\CacheItemInterface;
@@ -27,6 +28,8 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 class CachedPropertyNameCollectionFactoryTest extends TestCase
 {
+    use ProphecyTrait;
+
     public function testCreateWithItemHit()
     {
         $cacheItem = $this->prophesize(CacheItemInterface::class);
@@ -40,8 +43,6 @@ class CachedPropertyNameCollectionFactoryTest extends TestCase
 
         $cachedPropertyNameCollectionFactory = new CachedPropertyNameCollectionFactory($cacheItemPool->reveal(), $decoratedPropertyNameCollectionFactory->reveal());
         $resultedPropertyNameCollection = $cachedPropertyNameCollectionFactory->create(Dummy::class);
-
-        $this->assertInstanceOf(PropertyNameCollection::class, $resultedPropertyNameCollection);
 
         $expectedResult = new PropertyNameCollection(['id', 'name', 'description', 'dummy']);
         $this->assertEquals($expectedResult, $resultedPropertyNameCollection);
@@ -66,8 +67,6 @@ class CachedPropertyNameCollectionFactoryTest extends TestCase
         $cachedPropertyNameCollectionFactory = new CachedPropertyNameCollectionFactory($cacheItemPool->reveal(), $decoratedPropertyNameCollectionFactory->reveal());
         $resultedPropertyNameCollection = $cachedPropertyNameCollectionFactory->create(Dummy::class);
 
-        $this->assertInstanceOf(PropertyNameCollection::class, $resultedPropertyNameCollection);
-
         $expectedResult = new PropertyNameCollection(['id', 'name', 'description', 'dummy']);
         $this->assertEquals($expectedResult, $resultedPropertyNameCollection);
         $this->assertEquals($expectedResult, $cachedPropertyNameCollectionFactory->create(Dummy::class), 'Trigger the local cache');
@@ -78,16 +77,13 @@ class CachedPropertyNameCollectionFactoryTest extends TestCase
         $decoratedPropertyNameCollectionFactory = $this->prophesize(PropertyNameCollectionFactoryInterface::class);
         $decoratedPropertyNameCollectionFactory->create(Dummy::class, [])->willReturn(new PropertyNameCollection(['id', 'name', 'description', 'dummy']))->shouldBeCalled();
 
-        $cacheException = $this->prophesize(CacheException::class);
-        $cacheException->willExtend(\Exception::class);
+        $cacheException = new class() extends \Exception implements CacheException {};
 
         $cacheItemPool = $this->prophesize(CacheItemPoolInterface::class);
-        $cacheItemPool->getItem($this->generateCacheKey())->willThrow($cacheException->reveal())->shouldBeCalled();
+        $cacheItemPool->getItem($this->generateCacheKey())->willThrow($cacheException)->shouldBeCalled();
 
         $cachedPropertyNameCollectionFactory = new CachedPropertyNameCollectionFactory($cacheItemPool->reveal(), $decoratedPropertyNameCollectionFactory->reveal());
         $resultedPropertyNameCollection = $cachedPropertyNameCollectionFactory->create(Dummy::class);
-
-        $this->assertInstanceOf(PropertyNameCollection::class, $resultedPropertyNameCollection);
 
         $expectedResult = new PropertyNameCollection(['id', 'name', 'description', 'dummy']);
         $this->assertEquals($expectedResult, $resultedPropertyNameCollection);
