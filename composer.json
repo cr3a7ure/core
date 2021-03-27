@@ -1,5 +1,5 @@
 {
-    "name": "api-platform/core",
+    "name": "cr3a7ure/core",
     "type": "library",
     "description": "Build a fully-featured hypermedia or GraphQL API in minutes",
     "keywords": ["REST", "GraphQL", "API", "JSON-LD", "Hydra", "JSONAPI", "OpenAPI", "HAL", "Swagger"],
